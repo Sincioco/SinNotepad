@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+app/
+work/
+.vs/
+*.user
+*.suo
+*.lnk
+*.zip
+TestResults/
