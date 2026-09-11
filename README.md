@@ -11,7 +11,7 @@ The packaged Windows x64 app includes its .NET runtime. No installation or admin
 
 - Create, open, edit and save plain-text files.
 - New documents are named **Text 1**, **Text 2**, and so on. Typing does not rename them.
-- A standard Windows title bar shows **Sin - Notepad - full file path**; unsaved documents show their numbered name.
+- A standard Windows title bar shows **Sin - Notepad - filename.txt**, without the folder path; unsaved documents show their numbered name. Hover over a document or use **Copy full path** for its full location.
 - Horizontal tabs sit below the menu bar. Choose **View → Document List** or press **Ctrl+Shift+L** to switch to a vertical list on the left. Drag its right edge to resize it. The width is remembered.
 - Select documents in either layout; drag tabs or list rows to reorder them. The document's editor and undo stack stay intact when switching layouts.
 - Logical line numbers appear to the left of the text and remain visible while typing. Toggle them with **View → Line numbers**; the preference is remembered and applies to new documents too. Wrapped continuations do not receive extra line numbers. Hiding the gutter leaves the status-bar line/column information available.

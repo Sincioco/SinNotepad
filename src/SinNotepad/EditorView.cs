@@ -59,8 +59,8 @@ public sealed class EditorView : Grid
         Children.Add(Gutter);
         Editor.TextChanged += (_, _) => { doc.Text = TextFiles.Normalize(Editor.Text); doc.Notify(); Gutter.Rebuild(); App.Current.MarkChanged(); };
         Editor.SelectionChanged += (_, _) => { doc.Caret = TextFiles.ToNormalizedOffset(Editor.Text, Editor.SelectionStart); doc.SelectionLength = TextFiles.ToNormalizedOffset(Editor.Text, Editor.SelectionStart + Editor.SelectionLength) - doc.Caret; };
-        Editor.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((_, _) => { Gutter.InvalidateVisual(); doc.Scroll = Editor.VerticalOffset; doc.HorizontalScroll = Editor.HorizontalOffset; }));
-        Editor.SizeChanged += (_, _) => Gutter.InvalidateVisual();
+        Editor.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((_, _) => { Gutter.RequestRefresh(); doc.Scroll = Editor.VerticalOffset; doc.HorizontalScroll = Editor.HorizontalOffset; }));
+        Editor.SizeChanged += (_, _) => Gutter.RequestRefresh();
         Loaded += (_, _) =>
         {
             int start = TextFiles.FromNormalizedOffset(Editor.Text, doc.Caret);
@@ -83,7 +83,13 @@ public sealed class EditorView : Grid
 public sealed class LineNumberGutter : FrameworkElement
 {
     readonly TextBox editor;
-    bool redrawQueued;
+    bool refreshQueued;
+    bool refreshPending;
+    readonly record struct VisibleLine(int Number, double Top);
+    readonly record struct DrawingStyle(FontFamily Font, double FontSize, double Dpi, double Width, Brush Foreground, Brush Background, Brush Border);
+    List<VisibleLine> visibleLines = [];
+    DrawingStyle? drawingStyle;
+    DrawingGroup? numberDrawing;
     public List<int> LineStarts { get; private set; } = [0];
     public int LineCount => LineStarts.Count;
     public LineNumberGutter(TextBox editor)
@@ -91,6 +97,10 @@ public sealed class LineNumberGutter : FrameworkElement
         this.editor = editor; ClipToBounds = true; Focusable = false;
         AutomationProperties.SetName(this, "Line numbers");
         IsHitTestVisible = false;
+        Loaded += (_, _) => RequestRefresh();
+        SizeChanged += (_, _) => RequestRefresh();
+        IsVisibleChanged += (_, _) => { if (IsVisible) RequestRefresh(); };
+        editor.LayoutUpdated += (_, _) => { if (refreshPending) QueueRefresh(); };
         Rebuild();
     }
     public void Rebuild()
@@ -99,19 +109,59 @@ public sealed class LineNumberGutter : FrameworkElement
         for (int i = 0; i < text.Length; i++) { if (text[i] == '\r') { if (i + 1 < text.Length && text[i + 1] == '\n') i++; starts.Add(i + 1); } else if (text[i] == '\n') starts.Add(i + 1); }
         LineStarts = starts;
         Width = Math.Max(42, Math.Ceiling(editor.FontSize * 0.62 * Math.Max(2, starts.Count.ToString().Length) + 22));
-        InvalidateVisual();
-        // TextChanged precedes TextBox's text-view layout. Rectangles can be empty during that
-        // render pass, so redraw once after layout has finished, including edits with no scrolling.
-        if (!redrawQueued)
+        RequestRefresh();
+    }
+    public void RequestRefresh()
+    {
+        refreshPending = true;
+        QueueRefresh();
+    }
+    void QueueRefresh()
+    {
+        if (refreshQueued) return;
+        refreshQueued = true;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
         {
-            redrawQueued = true;
-            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
-            {
-                redrawQueued = false;
-                if (!editor.IsLoaded) return;
-                editor.UpdateLayout(); InvalidateVisual();
-            });
+            refreshQueued = false;
+            if (!IsVisible || !editor.IsLoaded) { refreshPending = false; return; }
+            // Never query text geometry from OnRender: the text view can be invalid during
+            // that layout pass. Keep the previous complete drawing until new geometry is ready.
+            if (TryRefreshDrawing()) refreshPending = false;
+        });
+    }
+    bool TryRefreshDrawing()
+    {
+        if (!editor.IsMeasureValid || !editor.IsArrangeValid || ActualWidth <= 0 || ActualHeight <= 0) return false;
+        int index = editor.GetCharacterIndexFromPoint(new Point(editor.Padding.Left + 1, 1), true);
+        if (index < 0) return false;
+        int first = LineStarts.BinarySearch(index); if (first < 0) first = ~first - 1;
+        var next = new List<VisibleLine>();
+        for (int line = Math.Max(0, first); line < LineStarts.Count; line++)
+        {
+            Rect rect = editor.GetRectFromCharacterIndex(LineStarts[line], true);
+            if (rect.IsEmpty) return false;
+            if (rect.Y > ActualHeight) break;
+            if (rect.Bottom >= 0) next.Add(new(line + 1, rect.Top));
         }
+        var style = new DrawingStyle(editor.FontFamily, editor.FontSize, VisualTreeHelper.GetDpi(this).PixelsPerDip,
+            ActualWidth, (Brush)FindResource("MutedBrush"), (Brush)FindResource("EditorBrush"), (Brush)FindResource("LineBrush"));
+        // Ordinary character edits usually leave the numbers and their positions unchanged.
+        // Reuse the existing drawing instead of invalidating the gutter on every keystroke.
+        if (drawingStyle == style && visibleLines.SequenceEqual(next)) return true;
+        var drawing = new DrawingGroup();
+        using (var dc = drawing.Open())
+        {
+            foreach (var line in next)
+            {
+                var label = new FormattedText(line.Number.ToString(), CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                    new Typeface(style.Font, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), style.FontSize, style.Foreground, style.Dpi);
+                dc.DrawText(label, new Point(style.Width - label.Width - 10, line.Top));
+            }
+        }
+        drawing.Freeze();
+        numberDrawing = drawing; drawingStyle = style; visibleLines = next;
+        InvalidateVisual();
+        return true;
     }
     public (int Line, int Column) Position(int index)
     {
@@ -121,23 +171,10 @@ public sealed class LineNumberGutter : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
-        var background = (Brush)FindResource("EditorBrush");
-        var foreground = (Brush)FindResource("MutedBrush");
+        var background = drawingStyle?.Background ?? (Brush)FindResource("EditorBrush");
         dc.DrawRectangle(background, null, new Rect(0, 0, ActualWidth, ActualHeight));
-        dc.DrawLine(new Pen((Brush)FindResource("LineBrush"), 1), new Point(ActualWidth - 0.5, 0), new Point(ActualWidth - 0.5, ActualHeight));
-        if (!editor.IsLoaded || editor.ActualHeight <= 0) return;
-        int index = editor.GetCharacterIndexFromPoint(new Point(editor.Padding.Left + 1, 1), true);
-        int first = LineStarts.BinarySearch(Math.Max(0, index)); if (first < 0) first = ~first - 1;
-        var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        // Only draw the logical lines intersecting the viewport. Wrapped continuations have no duplicate number.
-        for (int line = Math.Max(0, first); line < LineStarts.Count; line++)
-        {
-            Rect rect = editor.GetRectFromCharacterIndex(LineStarts[line], true);
-            if (rect.IsEmpty) continue;
-            if (rect.Y > ActualHeight) break;
-            if (rect.Bottom < 0) continue;
-            var label = new FormattedText((line + 1).ToString(), CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new Typeface(editor.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), editor.FontSize, foreground, dpi);
-            dc.DrawText(label, new Point(ActualWidth - label.Width - 10, rect.Top));
-        }
+        dc.DrawLine(new Pen(drawingStyle?.Border ?? (Brush)FindResource("LineBrush"), 1), new Point(ActualWidth - 0.5, 0), new Point(ActualWidth - 0.5, ActualHeight));
+        if (numberDrawing != null) dc.DrawDrawing(numberDrawing);
     }
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi) { base.OnDpiChanged(oldDpi, newDpi); RequestRefresh(); }
 }

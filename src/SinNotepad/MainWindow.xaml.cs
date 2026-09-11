@@ -35,7 +35,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 EditorHost.Content = editors[value.Id];
                 ExternalNotice.Visibility = Visibility.Collapsed;
                 UpdateStatus(); UpdateSearchStatus();
-                Title = "Sin - Notepad - " + (value.Path ?? value.Name);
+                Title = "Sin - Notepad - " + value.Name;
                 Dispatcher.BeginInvoke(() => { if (!IsLoaded) return; Tabs.ScrollIntoView(value); DocumentList.ScrollIntoView(value); }, DispatcherPriority.Loaded);
             }
             PropertyChanged?.Invoke(this, new(nameof(ActiveDocument)));
@@ -106,7 +106,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var view = new EditorView(doc);
         editors[doc.Id] = view;
         Documents.Add(doc);
-        doc.PropertyChanged += (_, _) => { if (doc == ActiveDocument) { Title = "Sin - Notepad - " + (doc.Path ?? doc.Name); UpdateStatus(); } };
+        doc.PropertyChanged += (_, _) => { if (doc == ActiveDocument) { Title = "Sin - Notepad - " + doc.Name; UpdateStatus(); } };
         view.Editor.SelectionChanged += (_, _) => { if (doc == ActiveDocument) UpdateStatus(); };
         view.Editor.TextChanged += (_, _) => { if (doc.AutoSave) { pendingAutoSaves[doc.Id] = DateTime.UtcNow; autoSaveErrors.Remove(doc.Id); } if (doc == ActiveDocument) { UpdateStatus(); UpdateSearchStatus(); } };
         view.Editor.PreviewMouseWheel += (_, e) => { if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { ChangeZoom(e.Delta > 0 ? 10 : -10); e.Handled = true; } };
@@ -341,7 +341,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         foreach (var pair in colors) Application.Current.Resources[pair.Key] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(pair.Value));
         var handle = new WindowInteropHelper(this).Handle;
         if (handle != IntPtr.Zero) { int value = dark ? 1 : 0; DwmSetWindowAttribute(handle, 20, ref value, sizeof(int)); int corner = 2; DwmSetWindowAttribute(handle, 33, ref corner, sizeof(int)); }
-        foreach (var view in editors.Values) view.Gutter.InvalidateVisual();
+        foreach (var view in editors.Values) view.Gutter.RequestRefresh();
     }
     async void WindowActivated(object? sender, EventArgs e)
     {

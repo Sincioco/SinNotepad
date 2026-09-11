@@ -27,6 +27,7 @@ internal static class UiSelfTest
             Capture(window, Path.Combine(app.Store.DirectoryPath, "horizontal.png"));
             Check(Descendants(window.MainMenu).OfType<AccessText>().All(t => t.ActualHeight >= 16), "Menu labels have enough height to render");
             Check(window.ActiveDocument!.Name == "Text 1", "First document is Text 1");
+            Check(GlyphCount(window.CurrentView!.Gutter) == 1, "An empty document visibly renders line number 1");
             Check(window.Title == "Sin - Notepad - Text 1" && System.Windows.Shell.WindowChrome.GetWindowChrome(window) == null, "Standard native title bar shows the new document name");
             Check(window.MainMenu.TranslatePoint(new Point(0, window.MainMenu.ActualHeight), window).Y <= window.HorizontalNavigation.TranslatePoint(new Point(), window).Y, "Tabs sit below the menu bar");
             Check(!Descendants(window.Tabs).OfType<Button>().Any(), "Tabs have no close X buttons");
@@ -49,12 +50,23 @@ internal static class UiSelfTest
             Check(window.CurrentView!.Gutter.LineCount == 3, "Gutter counts logical lines");
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(GlyphCount(window.CurrentView.Gutter) == 3, "All three line numbers are visibly drawn after editing");
-            for (int i = 0; i < 5; i++)
+            var unchangedGlyphs = Glyphs(window.CurrentView.Gutter).ToArray();
+            var typingFrames = new List<int>();
+            EventHandler sampleTypingFrame = (_, _) => typingFrames.Add(GlyphCount(window.CurrentView!.Gutter));
+            System.Windows.Media.CompositionTarget.Rendering += sampleTypingFrame;
+            try
             {
-                editor.SelectedText = "x";
-                await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-                Check(GlyphCount(window.CurrentView.Gutter) == 3, $"Line numbers remain visibly drawn after keystroke {i + 1}");
+                for (int i = 0; i < 5; i++)
+                {
+                    editor.SelectedText = "x";
+                    await Task.Delay(60);
+                    Check(GlyphCount(window.CurrentView.Gutter) == 3, $"Line numbers remain visibly drawn after keystroke {i + 1}");
+                }
             }
+            finally { System.Windows.Media.CompositionTarget.Rendering -= sampleTypingFrame; }
+            results.Add($"INFO typing frames: {typingFrames.Count}; blank frames: {typingFrames.Count(count => count == 0)}");
+            Check(typingFrames.Count >= 5 && typingFrames.All(count => count == 3), "Every rendered typing frame retains all three line numbers without a blank flash");
+            Check(unchangedGlyphs.SequenceEqual(Glyphs(window.CurrentView.Gutter)), "Ordinary typing reuses the existing number glyphs when line positions are unchanged");
             editor.SelectedText = "\r\nnew line";
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(GlyphCount(window.CurrentView.Gutter) == 4, "Typing a newline visibly adds a line number");
@@ -83,6 +95,8 @@ internal static class UiSelfTest
             window.Editor.Redo(); Check(window.Editor.Text.EndsWith(" edited"), "Redo restores edit");
             double oldSize = editor.FontSize;
             window.ChangeZoom(40); Check(editor.FontSize > oldSize && first.Zoom == 140, "Zoom enlarges text");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(Glyphs(window.CurrentView.Gutter).All(g => Math.Abs(g.FontRenderingEmSize - editor.FontSize) < 0.01), "Cached line-number drawings refresh to match the zoomed editor font");
             window.ChangeZoom(-20); Check(first.Zoom == 120, "Zoom reduces text");
             window.ChangeZoom(100, true); Check(Math.Abs(editor.FontSize - oldSize) < 0.01, "Default zoom restores text size");
             var second = window.NewDocument(); Check(second.Name == "Text 2", "Second document is sequential");
@@ -107,8 +121,8 @@ internal static class UiSelfTest
             editor.Text = string.Join("\n", Enumerable.Range(1, 200).Select(i => $"Line {i}: editable plain text"));
             window.UpdateLayout(); editor.ScrollToEnd();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-            window.CurrentView!.Gutter.InvalidateVisual(); window.UpdateLayout();
             Check(window.CurrentView.Gutter.LineCount == 200 && editor.VerticalOffset > 0, "Long text scrolls with 200 logical line numbers");
+            Check(new string(Glyphs(window.CurrentView.Gutter).Last().Characters.ToArray()) == "200", "Scrolling replaces cached numbers with the visible final line 200");
             var snapshot = window.Snapshot(); app.Store.Write("test-session.json", snapshot);
             var restored = new MainWindow(app.Store.Read<WindowSession>("test-session.json")); restored.Show();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
@@ -118,7 +132,7 @@ internal static class UiSelfTest
             app.Preferences.NextDocumentNumber = 50;
             var auto = window.NewDocument();
             Check(auto.Path != null && File.Exists(auto.Path) && new FileInfo(auto.Path).Length == 0, "New numbered document exists on disk immediately");
-            Check(window.Title == "Sin - Notepad - " + auto.Path, "Title bar shows full path for a saved document");
+            Check(window.Title == "Sin - Notepad - " + auto.Name && !window.Title.Contains(Path.DirectorySeparatorChar), "Title bar shows only the filename for a saved document");
             window.Editor!.Text = "Unicode café 中文 😀\nsecond line";
             window.FlushAutoSaves(true);
             Check(!auto.Dirty && TextFiles.Open(auto.Path!).Text == auto.Text, "Auto-save writes edited Unicode text to disk");
@@ -139,9 +153,9 @@ internal static class UiSelfTest
             window.ActiveDocument = collision;
             window.RenameDocumentFile(afterReset, "Renamed café.txt");
             Check(!File.Exists(originalPath) && File.Exists(afterReset.Path) && afterReset.Dirty && File.ReadAllText(afterReset.Path!) == "", "Rename moves the physical file and retains unsaved edits separately");
-            Check(mirrorDoc.Path == afterReset.Path && mirror.Title == "Sin - Notepad - " + afterReset.Path && window.ActiveDocument == collision, "Rename updates other windows and targets the requested inactive document");
+            Check(mirrorDoc.Path == afterReset.Path && mirror.Title == "Sin - Notepad - " + afterReset.Name && window.ActiveDocument == collision, "Rename updates other windows and targets the requested inactive document");
             window.ActiveDocument = afterReset;
-            Check(window.Editor == renameEditor && renameEditor.CanUndo && window.Title == "Sin - Notepad - " + afterReset.Path, "Rename preserves editor identity, undo and the full-path title");
+            Check(window.Editor == renameEditor && renameEditor.CanUndo && window.Title == "Sin - Notepad - " + afterReset.Name, "Rename preserves editor identity, undo and the filename title");
             window.FlushAutoSaves(true);
             Check(File.ReadAllText(afterReset.Path!) == "keep pending edits" && !File.Exists(originalPath), "Pending auto-save follows the renamed file");
             var fileMenu = window.CreateDocumentMenu(afterReset);
@@ -204,6 +218,12 @@ internal static class UiSelfTest
             app.Preferences.WordWrap = true; window.ApplyPreferences();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(GlyphCount(window.CurrentView!.Gutter) > 0, "Wrapped text redraws logical line numbers after the layout changes");
+            window.Editor.Text = "short\nsecond\nthird"; window.Editor.ScrollToHome();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            double secondLineBaseline = Glyphs(window.CurrentView.Gutter).ElementAt(1).BaselineOrigin.Y;
+            window.Editor.Select(5, 0); window.Editor.SelectedText = new string('x', 120);
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(Glyphs(window.CurrentView.Gutter).ElementAt(1).BaselineOrigin.Y > secondLineBaseline, "Wrapping the first paragraph moves subsequent line-number drawings into alignment");
             results.Add($"PASS {results.Count(r => r.StartsWith("PASS "))} UI integration checks");
             File.WriteAllLines(report, results);
             app.Shutdown(0);
@@ -221,15 +241,16 @@ internal static class UiSelfTest
         var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
         using var file = File.Create(path); encoder.Save(file);
     }
-    static int GlyphCount(DependencyObject element)
+    static int GlyphCount(DependencyObject element) => Glyphs(element).Count();
+    static IEnumerable<System.Windows.Media.GlyphRun> Glyphs(DependencyObject element)
     {
-        int Count(System.Windows.Media.Drawing? drawing) => drawing switch
+        IEnumerable<System.Windows.Media.GlyphRun> Read(System.Windows.Media.Drawing? drawing) => drawing switch
         {
-            System.Windows.Media.GlyphRunDrawing => 1,
-            System.Windows.Media.DrawingGroup group => group.Children.Sum(Count),
-            _ => 0
+            System.Windows.Media.GlyphRunDrawing glyph => [glyph.GlyphRun],
+            System.Windows.Media.DrawingGroup group => group.Children.SelectMany(Read),
+            _ => []
         };
-        return Count(System.Windows.Media.VisualTreeHelper.GetDrawing((System.Windows.Media.Visual)element));
+        return Read(System.Windows.Media.VisualTreeHelper.GetDrawing((System.Windows.Media.Visual)element));
     }
     static IEnumerable<DependencyObject> Descendants(DependencyObject node)
     {

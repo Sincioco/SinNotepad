@@ -7,7 +7,7 @@ Validated on Windows 11 x64 with .NET SDK 10.0.400 on September 11, 2026.
 - Release solution build: passed, zero warnings and zero errors.
 - Self-contained Windows x64 package: passed; runtime bundled in one executable.
 - Core tests: **51 passed, 0 failed**.
-- WPF editor integration tests: **78 passed**.
+- WPF editor integration tests: **84 passed**.
 - Source whitespace formatting and Git whitespace checks: passed.
 
 Core tests exercise Unicode/encoding and line-ending round trips, unchanged mixed endings, external-edit
@@ -19,7 +19,7 @@ midnight/noon/leap day, settings defaults and persistence, rename byte preservat
 invalid Windows names, case-only rename, a missing source, and avoiding a just-deleted numbered filename.
 
 The integration tests use the actual WPF editor and exercise menu rendering, native-title-bar configuration,
-full-path titles, numbered tabs, independent documents, line numbers and caret positions, zoom, list/tabs
+filename-only titles, numbered tabs, independent documents, line numbers and caret positions, zoom, list/tabs
 toggling, sidebar sizing and width persistence, undo/redo retention, find/replace, reordered tabs, long-document
 scrolling, session restoration, selection restoration across CRLF normalization, physical auto-save files,
 auto-save edits, write conflicts, and resetting the document sequence.
@@ -33,10 +33,17 @@ also inherit the line-number setting.
 Deletion also checks the current open references after modal confirmation, retaining documents saved to a
 different path during the dialog and closing any newly opened references to the deleted file.
 
+The 1.1.1 frame-by-frame regression reproduced the reported typing flicker on the previous implementation:
+several intermediate composition frames contained zero line-number glyphs even though the post-edit checks
+passed. The corrected implementation retained all three glyphs across **70 sampled typing frames, with zero
+blank frames** in the final test run. Ordinary character edits reuse the same glyph objects when line
+positions are unchanged. Other checks verify empty-document drawing, updated glyph size after zoom,
+line 200 after scrolling, and repositioning subsequent numbers when an earlier paragraph wraps.
+
 ## Native interface observations
 
 - Launched the packaged executable successfully.
-- Observed the standard Windows title bar with `Sin - Notepad - <full path>`, menus above tabs, aligned line numbers, and status bar.
+- Observed the standard Windows title bar, menus above tabs, aligned line numbers, and status bar.
 - Used Ctrl+Shift+L to switch to Document List; confirmed text and caret remained in place.
 - Dragged the divider from roughly 250 to 350 pixels; the list and editor resized correctly.
 - Used Ctrl+Plus; text and gutter enlarged together and the status changed from 100% to 110%.
@@ -48,13 +55,16 @@ different path during the dialog and closing any newly opened references to the 
 - Opened Rename and checked that the base name is selected while the extension remains visible; cancelled without changing the fixture.
 - Inspected all six live Date/Time examples in the submenu.
 - Used View → Line numbers and observed the gutter collapse while the status bar retained line/column data.
+- In an isolated 1.1.1 profile, inspected `Sin - Notepad - Typing check.txt` in the native title bar and typed into the three-line document with the numbers still drawn. Frame-level continuity is verified by the automated composition-frame regression above.
 
 The initial compact-menu clipping defect and the CRLF caret-restoration mismatch were corrected and covered
 by focused regression checks before the final build. The SDK formatting host initially followed a stale
 DOTNET_ROOT; rerunning with the installed system runtime completed successfully.
-The 1.1 gutter fix schedules a redraw after WPF finishes the text layout, rather than relying solely on
-the early TextChanged render pass. A test setup initially edited a newly selected editor before it loaded;
-waiting for its real Loaded/layout pass corrected that undo-test setup. The full suite subsequently passed.
+The original 1.1 gutter workaround requested both an early redraw and a later redraw. The later redraw
+restored the numbers, but the early render could clear them for one frame. Version 1.1.1 replaces this with
+a retained complete drawing, prepared outside OnRender after text layout. An incomplete layout leaves the
+previous drawing intact; unchanged line positions do not regenerate glyphs. Scroll, resize, zoom, theme and
+DPI changes request a coalesced refresh. The title is now `Sin - Notepad - <filename>` without its folder path.
 
 ## Scope and limits
 
