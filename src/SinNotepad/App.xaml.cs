@@ -44,7 +44,13 @@ public partial class App : Application
         }
         Preferences = Store.Read<Settings>("settings.json");
         Preferences.NextDocumentNumber = Math.Max(1, Preferences.NextDocumentNumber);
-        DispatcherUnhandledException += (_, ev) => { ev.Handled = true; MessageBox.Show(ev.Exception.Message, "Sin - Notepad", MessageBoxButton.OK, MessageBoxImage.Error); };
+        DispatcherUnhandledException += (_, ev) =>
+        {
+            ev.Handled = true;
+            if (Exiting || Dispatcher.HasShutdownStarted) return;
+            string message = string.IsNullOrWhiteSpace(ev.Exception.Message) ? "An unexpected error occurred." : ev.Exception.Message;
+            MessageBox.Show(message, "Sin - Notepad", MessageBoxButton.OK, MessageBoxImage.Error);
+        };
         if (TestMode) { await UiSelfTest.Run(this); return; }
         _ = ListenForFiles();
         var session = Preferences.RestoreSession ? Store.Read<Session>("session.json") : new Session();
@@ -77,7 +83,11 @@ public partial class App : Application
                 });
             }
             catch (OperationCanceledException) { break; }
-            catch (Exception ex) when (ex is IOException or JsonException) { await Task.Delay(250, stop.Token).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is IOException or JsonException)
+            {
+                try { await Task.Delay(250, stop.Token).ConfigureAwait(false); }
+                catch (OperationCanceledException) { break; }
+            }
         }
     }
     public int NextNumber() { int result = Preferences.NextDocumentNumber++; MarkChanged(); return result; }
@@ -98,11 +108,18 @@ public partial class App : Application
         var windows = Windows.OfType<MainWindow>().ToArray();
         foreach (var window in windows) if (!window.PrepareClose()) return;
         if (!SaveState()) { MessageBox.Show("Could not save your session. Save your files before closing.\n\n" + PersistenceError, "Sin - Notepad"); return; }
-        Exiting = true;
+        BeginExit();
         foreach (var window in windows) window.Close();
+    }
+    internal void BeginExit()
+    {
+        if (Exiting) return;
+        Exiting = true;
+        timer.Stop();
+        stop.Cancel();
     }
     protected override void OnExit(ExitEventArgs e)
     {
-        timer.Stop(); stop.Cancel(); instanceMutex?.Dispose(); base.OnExit(e);
+        BeginExit(); instanceMutex?.Dispose(); base.OnExit(e);
     }
 }

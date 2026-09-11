@@ -216,7 +216,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             e.Cancel = true;
             MessageBox.Show(this, "Your session could not be saved, so the window will stay open. Save your documents before trying again.\n\n" + App.Current.PersistenceError, "Sin - Notepad", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
         }
+        if (Application.Current.Windows.OfType<MainWindow>().Count() == 1) App.Current.BeginExit();
     }
     public WindowSession Snapshot()
     {

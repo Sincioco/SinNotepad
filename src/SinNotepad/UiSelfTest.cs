@@ -267,6 +267,8 @@ internal static class UiSelfTest
             window.Editor.Select(5, 0); window.Editor.SelectedText = new string('x', 120);
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(Glyphs(window.CurrentView.Gutter).ElementAt(1).BaselineOrigin.Y > secondLineBaseline, "Wrapping the first paragraph moves subsequent line-number drawings into alignment");
+            app.BeginExit();
+            Check(app.Exiting, "The app enters exit mode before dispatcher teardown begins");
             results.Add($"PASS {results.Count(r => r.StartsWith("PASS "))} UI integration checks");
             File.WriteAllLines(report, results);
             app.Shutdown(0);
