@@ -456,6 +456,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (modifiers != ModifierKeys.Control || Editor == null) return false;
         if (key == Key.D) { InsertDate(0, now, rememberChoice: false); return true; }
         if (key == Key.L) { InsertAtCaret(new string('_', 80)); return true; }
+        if (key == Key.I) { InsertDateAndSeparator(now); return true; }
         return false;
     }
     void InsertAtCaret(string text)
@@ -474,6 +475,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (rememberChoice) { Preferences.DateTimeFormat = format; App.Current.MarkChanged(); }
     }
     void InsertSeparatorClick(object sender, RoutedEventArgs e) => InsertAtCaret(new string('_', 80));
+    void InsertDateAndSeparator(DateTime? now = null) => InsertAtCaret(DateTimeFormats.Format(now ?? DateTime.Now, 0) + Environment.NewLine + new string('_', 80));
+    void InsertDateAndSeparatorClick(object sender, RoutedEventArgs e) => InsertDateAndSeparator();
     void DateTimeOpened(object sender, RoutedEventArgs e)
     {
         if (e.Source != DateTimeMenu) return;

@@ -56,6 +56,18 @@ internal static class UiSelfTest
             editor.Undo(); Check(editor.Text == "before selected after", "Ctrl+L insertion is a single undoable edit");
             Check(!window.TryInsertShortcut(Key.L, ModifierKeys.Control | ModifierKeys.Shift) &&
                 !window.TryInsertShortcut(Key.D, ModifierKeys.Control | ModifierKeys.Alt) && editor.Text == "before selected after", "Insertion shortcuts require plain Ctrl and leave Ctrl+Shift+L available for navigation");
+            editor.Select(7, 8);
+            string dateAndSeparator = "Friday, September 11, 2026 at 7:08 pm\r\n" + new string('_', 80);
+            Check(window.TryInsertShortcut(Key.I, ModifierKeys.Control, new DateTime(2026, 9, 11, 19, 8, 0)) &&
+                editor.Text == "before " + dateAndSeparator + " after", "Ctrl+I replaces the selection with the long date/time and exactly 80 underscores on the next line");
+            Check(editor.SelectionStart == 7 + dateAndSeparator.Length && editor.SelectionLength == 0 &&
+                app.Preferences.DateTimeFormat == 5 && window.IsDocumentList == navigationBefore, "Ctrl+I places the caret after the separator and preserves the F5 preference and navigation layout");
+            editor.Undo(); Check(editor.Text == "before selected after", "Ctrl+I date/time and separator are undone together in one step");
+            editor.Redo(); Check(editor.Text == "before " + dateAndSeparator + " after", "Ctrl+I date/time and separator are restored together by redo");
+            Check(!window.TryInsertShortcut(Key.I, ModifierKeys.None) &&
+                !window.TryInsertShortcut(Key.I, ModifierKeys.Control | ModifierKeys.Shift) &&
+                !window.TryInsertShortcut(Key.I, ModifierKeys.Control | ModifierKeys.Alt) &&
+                editor.Text == "before " + dateAndSeparator + " after", "The combined insertion only handles plain Ctrl+I");
             editor.Text = "first line\nsecond line\nthird line";
             editor.ClearUndo(); editor.CaretIndex = editor.Text.Length; editor.SelectedText = " edited";
             Check(first.Dirty, "Editing marks the document modified");
