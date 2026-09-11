@@ -106,6 +106,8 @@ public static class Dialogs
         System.Windows.Automation.AutomationProperties.SetName(themes, "App theme"); panel.Children.Add(themes);
         Label("Editor");
         var wrap = new CheckBox { Content = "Word wrap", IsChecked = p.WordWrap, Margin = new Thickness(0, 3, 0, 8) }; panel.Children.Add(wrap);
+        var saveAllOnClose = new CheckBox { Content = "Auto-save all when Sin - Notepad closes", IsChecked = p.AutoSaveAllOnClose, Margin = new Thickness(0, 3, 0, 8), ToolTip = "Saves changed documents that already have a file path. Untitled documents continue to use session recovery." }; panel.Children.Add(saveAllOnClose);
+        System.Windows.Automation.AutomationProperties.SetName(saveAllOnClose, "Auto-save all when Sin - Notepad closes");
         var restore = new CheckBox { Content = "Restore open documents when the app starts", IsChecked = p.RestoreSession, Margin = new Thickness(0, 3, 0, 8) }; panel.Children.Add(restore);
         var error = new TextBlock { Foreground = Brushes.IndianRed, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 10) }; panel.Children.Add(error);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
@@ -121,7 +123,7 @@ public static class Dialogs
                     string probe = Path.Combine(path, ".sin-notepad-" + Guid.NewGuid().ToString("N") + ".tmp");
                     using (var file = new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose)) { file.WriteByte(0); }
                 }
-                p.AutoSaveDirectory = path; if (resetSequence) p.NextDocumentNumber = 1; p.Theme = themes.SelectedItem as string ?? "System"; p.WordWrap = wrap.IsChecked == true; p.RestoreSession = restore.IsChecked == true;
+                p.AutoSaveDirectory = path; if (resetSequence) p.NextDocumentNumber = 1; p.Theme = themes.SelectedItem as string ?? "System"; p.WordWrap = wrap.IsChecked == true; p.AutoSaveAllOnClose = saveAllOnClose.IsChecked == true; p.RestoreSession = restore.IsChecked == true;
                 App.Current.MarkChanged();
                 if (!App.Current.SaveState()) { error.Text = "Could not save settings: " + App.Current.PersistenceError; return; }
                 w.Close();

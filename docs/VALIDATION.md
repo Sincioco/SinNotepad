@@ -7,7 +7,7 @@ Validated on Windows 11 x64 with .NET SDK 10.0.400 on September 11, 2026.
 - Release solution build: passed, zero warnings and zero errors.
 - Self-contained Windows x64 package: passed; runtime bundled in one executable.
 - Core tests: **51 passed, 0 failed**.
-- WPF editor integration tests: **96 passed**.
+- WPF editor integration tests: **99 passed**.
 - Source whitespace formatting and Git whitespace checks: passed.
 
 Core tests exercise Unicode/encoding and line-ending round trips, unchanged mixed endings, external-edit
@@ -41,6 +41,12 @@ positions are unchanged. Other checks verify empty-document drawing, updated gly
 line 200 after scrolling, and repositioning subsequent numbers when an earlier paragraph wraps.
 
 ## Native interface observations
+
+Version 1.1.4 adds close-time auto-save for every changed document that already has a file path. The setting
+is enabled by default, persists when disabled and defaults to enabled when an older settings file does not
+contain it. Integration checks verify both enabled and disabled close behavior. Untitled documents without
+a path continue to use session recovery, or the existing save prompt when session restoration is disabled.
+The isolated native Settings review showed the complete option label, enabled by default and without clipping.
 
 Version 1.1.3 adds five regression checks for Ctrl+I: exact long date/time followed by a newline and
 80 underscores, selection replacement and caret placement, unchanged F5 preference and navigation,

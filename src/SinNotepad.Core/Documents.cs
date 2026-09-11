@@ -135,6 +135,7 @@ public sealed class Settings
     public bool StatusBar { get; set; } = true;
     public bool LineNumbers { get; set; } = true;
     public bool RestoreSession { get; set; } = true;
+    public bool AutoSaveAllOnClose { get; set; } = true;
     public bool OpenInNewWindow { get; set; }
     public bool RecentFiles { get; set; } = true;
     public bool DocumentList { get; set; }

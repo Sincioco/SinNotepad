@@ -28,6 +28,7 @@ internal static class UiSelfTest
             Capture(window, Path.Combine(app.Store.DirectoryPath, "horizontal.png"));
             Check(Descendants(window.MainMenu).OfType<AccessText>().All(t => t.ActualHeight >= 16), "Menu labels have enough height to render");
             Check(window.ActiveDocument!.Name == "Text 1", "First document is Text 1");
+            Check(app.Preferences.AutoSaveAllOnClose, "Close auto-save is enabled by default");
             Check(GlyphCount(window.CurrentView!.Gutter) == 1, "An empty document visibly renders line number 1");
             Check(window.Title == "Sin - Notepad - Text 1" && System.Windows.Shell.WindowChrome.GetWindowChrome(window) == null, "Standard native title bar shows the new document name");
             Check(window.MainMenu.TranslatePoint(new Point(0, window.MainMenu.ActualHeight), window).Y <= window.HorizontalNavigation.TranslatePoint(new Point(), window).Y, "Tabs sit below the menu bar");
@@ -230,6 +231,19 @@ internal static class UiSelfTest
             window.SetLineNumbers(true);
             ((MenuItem)window.CreateDocumentMenu(closeTarget).Items[^1]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Check(!window.Documents.Contains(closeTarget) && window.ActiveDocument == collision, "Context-menu Close removes its target while preserving the other active document");
+            string closeSavePath = Path.Combine(app.Store.DirectoryPath, "save-all-on-close.txt");
+            File.WriteAllText(closeSavePath, "before close");
+            var closeSaveWindow = new MainWindow(); closeSaveWindow.Show();
+            closeSaveWindow.OpenPaths([closeSavePath]);
+            var closeSaveDocument = closeSaveWindow.ActiveDocument!;
+            closeSaveWindow.Editor!.Text = "saved while closing";
+            app.Preferences.AutoSaveAllOnClose = true;
+            Check(closeSaveWindow.PrepareClose() && File.ReadAllText(closeSavePath) == "saved while closing" && !closeSaveDocument.Dirty, "Closing auto-saves every changed document that has a file path when enabled");
+            closeSaveWindow.Editor.Text = "leave pending";
+            app.Preferences.AutoSaveAllOnClose = false;
+            Check(closeSaveWindow.PrepareClose() && File.ReadAllText(closeSavePath) == "saved while closing" && closeSaveDocument.Dirty, "Disabling close auto-save leaves ordinary file changes pending for session recovery");
+            app.Preferences.AutoSaveAllOnClose = true;
+            closeSaveWindow.Close();
             var gutterDocument = window.NewDocument();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             app.Preferences.WordWrap = false; window.ApplyPreferences();

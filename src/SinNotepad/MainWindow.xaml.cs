@@ -202,6 +202,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool PrepareClose()
     {
         FlushAutoSaves(true);
+        if (Preferences.AutoSaveAllOnClose)
+            foreach (var doc in Documents.ToArray())
+                if (doc.Dirty && doc.Path != null && !SaveDocument(doc)) return false;
         if (!Preferences.RestoreSession) foreach (var doc in Documents.ToArray()) if (!ConfirmSave(doc)) return false;
         return true;
     }

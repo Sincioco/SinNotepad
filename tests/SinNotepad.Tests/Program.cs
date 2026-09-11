@@ -52,12 +52,15 @@ Test("Date/Time handles midnight, noon, leap day and English under another local
     }
     finally { System.Globalization.CultureInfo.CurrentCulture = prior; }
 });
-Test("Line numbers and Date/Time choices persist with backward-compatible defaults", () =>
+Test("View, Date/Time and close auto-save settings persist with backward-compatible defaults", () =>
 {
     var store = new Store(Path.Combine(root, "view-settings"));
-    Assert(store.Read<Settings>("settings.json").LineNumbers);
-    store.Write("settings.json", new Settings { LineNumbers = false, DateTimeFormat = 5 });
-    var settings = store.Read<Settings>("settings.json"); Assert(!settings.LineNumbers && settings.DateTimeFormat == 5);
+    Directory.CreateDirectory(store.DirectoryPath);
+    File.WriteAllText(Path.Combine(store.DirectoryPath, "settings.json"), "{\"LineNumbers\":false,\"DateTimeFormat\":5}");
+    var legacy = store.Read<Settings>("settings.json");
+    Assert(!legacy.LineNumbers && legacy.DateTimeFormat == 5 && legacy.AutoSaveAllOnClose);
+    legacy.AutoSaveAllOnClose = false; store.Write("settings.json", legacy);
+    Assert(!store.Read<Settings>("settings.json").AutoSaveAllOnClose);
 });
 Test("Rename preserves exact file bytes and supports Unicode and spaces", () =>
 {

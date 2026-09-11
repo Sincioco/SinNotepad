@@ -65,6 +65,10 @@ after approximately 0.8 seconds without typing, and pending edits are flushed wh
 The status bar shows **Saving…**, **Saved**, or **Auto-save paused**. Hover over a paused status for the reason;
 use Save / Save as to resolve a write problem. A file changed outside the app is never silently overwritten.
 
+**Auto-save all when Sin - Notepad closes** is enabled by default. It saves changes in every open document
+that already has a physical file path, including files opened manually. Untitled documents without a path
+remain in session recovery; if session restoration is disabled, the normal save prompt still appears.
+
 The next document number persists across app launches. **Reset to 1** takes effect when Settings is saved.
 Existing filenames are skipped: if `Text 1.txt` already exists, the app tries `Text 2.txt`, and so on.
 Resetting never overwrites an existing file. Leaving the folder empty enables manual saving for future new
