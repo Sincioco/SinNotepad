@@ -8,10 +8,10 @@
   </Grid>
   <Border Grid.Row="0" Background="{DynamicResource EditorBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1"><Grid><Menu x:Name="MainMenu" Background="Transparent" VerticalAlignment="Center" Margin="4,0,84,0" Foreground="{DynamicResource TextBrush}" PreviewMouseDown="MenuPreviewMouseDown">
    <MenuItem Header="_File" Template="{StaticResource CompactMenuHeader}">
-    <MenuItem Header="New _tab" InputGestureText="Ctrl+N" Click="NewTabClick"/>
+    <MenuItem Header="_New" InputGestureText="Ctrl+N" Click="NewTabClick"/>
     <MenuItem Header="New _window" InputGestureText="Ctrl+Shift+N" Click="NewWindowClick"/>
     <MenuItem Header="_Open" InputGestureText="Ctrl+O" Click="OpenClick"/>
-    <MenuItem x:Name="RecentMenu" Header="_Recent" SubmenuOpened="RecentOpened"/>
+    <MenuItem x:Name="RecentMenu" Header="_Recently Opened" SubmenuOpened="RecentOpened"/>
     <Separator/><MenuItem Header="_Save" InputGestureText="Ctrl+S" Click="SaveClick"/>
     <MenuItem Header="Save _as" InputGestureText="Ctrl+Shift+S" Click="SaveAsClick"/>
     <MenuItem Header="Save a_ll" InputGestureText="Ctrl+Alt+S" Click="SaveAllClick"/>

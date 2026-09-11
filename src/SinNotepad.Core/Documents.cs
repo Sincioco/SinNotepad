@@ -128,6 +128,7 @@ public static class TextFiles
 
 public sealed class Settings
 {
+    public const int RecentFileLimit = 10;
     public string Theme { get; set; } = "System";
     public int NextDocumentNumber { get; set; } = 1;
     public string AutoSaveDirectory { get; set; } = "";

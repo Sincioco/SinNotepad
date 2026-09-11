@@ -155,7 +155,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!Preferences.RecentFiles) return;
         Preferences.Recent.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
         Preferences.Recent.Insert(0, path);
-        if (Preferences.Recent.Count > 20) Preferences.Recent.RemoveRange(20, Preferences.Recent.Count - 20);
+        if (Preferences.Recent.Count > Settings.RecentFileLimit) Preferences.Recent.RemoveRange(Settings.RecentFileLimit, Preferences.Recent.Count - Settings.RecentFileLimit);
         App.Current.MarkChanged();
     }
     public bool SaveDocument(Document doc, bool saveAs = false)
@@ -550,8 +550,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     void RecentOpened(object sender, RoutedEventArgs e)
     {
         RecentMenu.Items.Clear();
-        foreach (var path in Preferences.Recent.ToArray()) { var item = new MenuItem { Header = path.Replace("_", "__"), ToolTip = path }; item.Click += (_, _) => OpenPaths([path]); RecentMenu.Items.Add(item); }
-        if (RecentMenu.Items.Count == 0) RecentMenu.Items.Add(new MenuItem { Header = "No recent files", IsEnabled = false });
+        foreach (var path in Preferences.Recent.Take(Settings.RecentFileLimit).ToArray()) { var item = new MenuItem { Header = path.Replace("_", "__"), ToolTip = path }; item.Click += (_, _) => OpenPaths([path]); RecentMenu.Items.Add(item); }
+        if (RecentMenu.Items.Count == 0) RecentMenu.Items.Add(new MenuItem { Header = "No recently opened files", IsEnabled = false });
     }
     void NewlineClick(object sender, RoutedEventArgs e)
     {

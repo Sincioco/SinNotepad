@@ -44,6 +44,7 @@ public partial class App : Application
         }
         Preferences = Store.Read<Settings>("settings.json");
         Preferences.NextDocumentNumber = Math.Max(1, Preferences.NextDocumentNumber);
+        if (Preferences.Recent.Count > Settings.RecentFileLimit) Preferences.Recent.RemoveRange(Settings.RecentFileLimit, Preferences.Recent.Count - Settings.RecentFileLimit);
         DispatcherUnhandledException += (_, ev) =>
         {
             ev.Handled = true;

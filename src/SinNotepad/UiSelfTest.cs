@@ -28,6 +28,9 @@ internal static class UiSelfTest
             }
             Capture(window, Path.Combine(app.Store.DirectoryPath, "horizontal.png"));
             Check(Descendants(window.MainMenu).OfType<AccessText>().All(t => t.ActualHeight >= 16), "Menu labels have enough height to render");
+            var applicationFileMenu = (MenuItem)window.MainMenu.Items[0];
+            Check((string)((MenuItem)applicationFileMenu.Items[0]).Header == "_New", "File menu labels Ctrl+N as New");
+            Check((string)window.RecentMenu.Header == "_Recently Opened", "File menu exposes Recently Opened");
             Check(window.ActiveDocument!.Name == "Text 1", "First document is Text 1");
             Check(app.Preferences.AutoSaveAllOnClose, "Close auto-save is enabled by default");
             var initialEditor = window.Editor!;
@@ -39,6 +42,14 @@ internal static class UiSelfTest
             Check(!Descendants(window.Tabs).OfType<Button>().Any(), "Tabs have no close X buttons");
             Check(window.CreateDocumentMenu(window.ActiveDocument!).Items.OfType<MenuItem>().Last().IsEnabled &&
                 !window.CreateDocumentMenu(window.ActiveDocument!).Items.OfType<MenuItem>().First().IsEnabled, "Unsaved documents offer Close while file operations require a path");
+            app.Preferences.Recent.Clear();
+            var recentWindow = new MainWindow(new WindowSession { Documents = [new Document { UntitledNumber = 0 }] }); recentWindow.Show();
+            var recentPaths = Enumerable.Range(1, 12).Select(i => Path.Combine(app.Store.DirectoryPath, $"recent-{i}.txt")).ToArray();
+            foreach (var path in recentPaths) { File.WriteAllText(path, path); recentWindow.OpenPaths([path]); }
+            Check(app.Preferences.Recent.Count == Settings.RecentFileLimit && app.Preferences.Recent[0] == recentPaths[11] && app.Preferences.Recent[^1] == recentPaths[2], "Recently Opened retains the latest 10 files in newest-first order");
+            app.SaveState();
+            Check(app.Store.Read<Settings>("settings.json").Recent.SequenceEqual(app.Preferences.Recent), "Recently Opened persists between launches");
+            recentWindow.Close();
             var first = window.ActiveDocument;
             var editor = window.Editor!;
             editor.Text = "before selected after"; editor.ClearUndo(); editor.Select(7, 8);
