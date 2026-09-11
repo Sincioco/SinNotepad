@@ -5,8 +5,10 @@
     <AssemblyName>Sin - Notepad</AssemblyName>
     <RootNamespace>SinNotepad</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.1.7</Version>
+    <ApplicationIcon>Assets\SinNotepad.ico</ApplicationIcon>
+    <Version>1.1.8</Version>
     <Description>Native Windows text editor with tabs and a resizable document list.</Description>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../SinNotepad.Core/SinNotepad.Core.csproj" /></ItemGroup>
+  <ItemGroup><Resource Include="Assets\SinNotepad.ico" /></ItemGroup>
 </Project>

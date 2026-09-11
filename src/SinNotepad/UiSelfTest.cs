@@ -31,6 +31,7 @@ internal static class UiSelfTest
             var applicationFileMenu = (MenuItem)window.MainMenu.Items[0];
             Check((string)((MenuItem)applicationFileMenu.Items[0]).Header == "_New", "File menu labels Ctrl+N as New");
             Check((string)window.RecentMenu.Header == "_Recently Opened", "File menu exposes Recently Opened");
+            Check(window.RecentMenu.HasItems, "Recently Opened starts as an expandable submenu");
             Check(window.ActiveDocument!.Name == "Text 1", "First document is Text 1");
             Check(app.Preferences.AutoSaveAllOnClose, "Close auto-save is enabled by default");
             var initialEditor = window.Editor!;
@@ -47,6 +48,9 @@ internal static class UiSelfTest
             var recentPaths = Enumerable.Range(1, 12).Select(i => Path.Combine(app.Store.DirectoryPath, $"recent-{i}.txt")).ToArray();
             foreach (var path in recentPaths) { File.WriteAllText(path, path); recentWindow.OpenPaths([path]); }
             Check(app.Preferences.Recent.Count == Settings.RecentFileLimit && app.Preferences.Recent[0] == recentPaths[11] && app.Preferences.Recent[^1] == recentPaths[2], "Recently Opened retains the latest 10 files in newest-first order");
+            recentWindow.RecentMenu.RaiseEvent(new RoutedEventArgs(MenuItem.SubmenuOpenedEvent));
+            Check(recentWindow.RecentMenu.Items.Count == Settings.RecentFileLimit &&
+                (string)((MenuItem)recentWindow.RecentMenu.Items[0]).ToolTip == recentPaths[11], "Recently Opened displays the saved history");
             app.SaveState();
             Check(app.Store.Read<Settings>("settings.json").Recent.SequenceEqual(app.Preferences.Recent), "Recently Opened persists between launches");
             recentWindow.Close();
