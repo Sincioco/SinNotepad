@@ -55,7 +55,7 @@ public sealed class EditorView : Grid
         Editor.Language = System.Windows.Markup.XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag);
         SpellCheck.SetIsEnabled(Editor, false);
         SetColumn(Editor, 1); Children.Add(Editor);
-        Gutter = new LineNumberGutter(Editor);
+        Gutter = new LineNumberGutter(Editor) { Visibility = App.Current.Preferences.LineNumbers ? Visibility.Visible : Visibility.Collapsed };
         Children.Add(Gutter);
         Editor.TextChanged += (_, _) => { doc.Text = TextFiles.Normalize(Editor.Text); doc.Notify(); Gutter.Rebuild(); App.Current.MarkChanged(); };
         Editor.SelectionChanged += (_, _) => { doc.Caret = TextFiles.ToNormalizedOffset(Editor.Text, Editor.SelectionStart); doc.SelectionLength = TextFiles.ToNormalizedOffset(Editor.Text, Editor.SelectionStart + Editor.SelectionLength) - doc.Caret; };
@@ -72,6 +72,7 @@ public sealed class EditorView : Grid
     }
     public void ApplyPreferences()
     {
+        Gutter.Visibility = App.Current.Preferences.LineNumbers ? Visibility.Visible : Visibility.Collapsed;
         Editor.TextWrapping = App.Current.Preferences.WordWrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
         Editor.HorizontalScrollBarVisibility = App.Current.Preferences.WordWrap ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
         Editor.FontSize = 11.0 * 96 / 72 * Document.Zoom / 100;
@@ -82,6 +83,7 @@ public sealed class EditorView : Grid
 public sealed class LineNumberGutter : FrameworkElement
 {
     readonly TextBox editor;
+    bool redrawQueued;
     public List<int> LineStarts { get; private set; } = [0];
     public int LineCount => LineStarts.Count;
     public LineNumberGutter(TextBox editor)
@@ -98,6 +100,18 @@ public sealed class LineNumberGutter : FrameworkElement
         LineStarts = starts;
         Width = Math.Max(42, Math.Ceiling(editor.FontSize * 0.62 * Math.Max(2, starts.Count.ToString().Length) + 22));
         InvalidateVisual();
+        // TextChanged precedes TextBox's text-view layout. Rectangles can be empty during that
+        // render pass, so redraw once after layout has finished, including edits with no scrolling.
+        if (!redrawQueued)
+        {
+            redrawQueued = true;
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+            {
+                redrawQueued = false;
+                if (!editor.IsLoaded) return;
+                editor.UpdateLayout(); InvalidateVisual();
+            });
+        }
     }
     public (int Line, int Column) Position(int index)
     {

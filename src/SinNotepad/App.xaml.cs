@@ -101,11 +101,6 @@ public partial class App : Application
         Exiting = true;
         foreach (var window in windows) window.Close();
     }
-    public void CloseDocumentClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: Document doc } source && Window.GetWindow(source) is MainWindow window) window.CloseDocument(doc);
-        e.Handled = true;
-    }
     protected override void OnExit(ExitEventArgs e)
     {
         timer.Stop(); stop.Cancel(); instanceMutex?.Dispose(); base.OnExit(e);

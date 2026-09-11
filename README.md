@@ -11,12 +11,45 @@ The packaged Windows x64 app includes its .NET runtime. No installation or admin
 
 - Create, open, edit and save plain-text files.
 - New documents are named **Text 1**, **Text 2**, and so on. Typing does not rename them.
-- A standard Windows title bar shows **SinNotePad - full file path**; unsaved documents show their numbered name.
-- Horizontal tabs sit below the title bar. Choose **View → Document List** or press **Ctrl+Shift+L** to switch to a vertical list on the left. Drag its right edge to resize it. The width is remembered.
+- A standard Windows title bar shows **Sin - Notepad - full file path**; unsaved documents show their numbered name.
+- Horizontal tabs sit below the menu bar. Choose **View → Document List** or press **Ctrl+Shift+L** to switch to a vertical list on the left. Drag its right edge to resize it. The width is remembered.
 - Select documents in either layout; drag tabs or list rows to reorder them. The document's editor and undo stack stay intact when switching layouts.
-- Logical line numbers appear to the left of the text. Wrapped continuations do not receive extra line numbers.
+- Logical line numbers appear to the left of the text and remain visible while typing. Toggle them with **View → Line numbers**; the preference is remembered and applies to new documents too. Wrapped continuations do not receive extra line numbers. Hiding the gutter leaves the status-bar line/column information available.
 - The status bar shows line, column, total lines, character count, selection count, zoom, line endings and encoding.
 - Zoom changes only how large text appears. Files contain plain text, without formatting.
+
+## Document actions
+
+Right-click a tab or Document List row for these commands:
+
+| Command | Behavior |
+| --- | --- |
+| Rename… | Rename the physical file in its current folder. Edit the full name, including the extension. Existing files are never replaced. Open references, titles and auto-save follow the new name; edits and undo history are retained. |
+| Delete… | Confirm moving the physical file to the Windows Recycle Bin and closing every tab for it. The dialog identifies unsaved edits that will be discarded. Cancellation or failure keeps the file and documents open. |
+| Copy full path | Copy the file's complete path to the clipboard. |
+| Open containing folder | Open File Explorer with the file selected. If it was moved elsewhere, open its original folder when that folder still exists. |
+| Close | Close only this document; ask to save modified text when needed. The physical file remains on disk. |
+
+There are no document close X buttons in either layout. **Ctrl+W** and middle-click also close a document.
+File actions require a saved document; unsaved numbered documents still offer **Close**. Rename and Delete
+are unavailable if the original file no longer exists. Windows handles Recycle Bin availability and any
+additional file-system prompts. Deleting the final tab creates the next numbered document without recreating
+the deleted filename, even if the sequence was reset.
+
+## Date/Time
+
+Choose **Edit → Date/Time**, then click one of six live examples to insert the current local date/time at
+the caret or replace selected text. **F5** repeats the last selected format, remembered between launches.
+The default is the short date with time. Examples for September 11, 2026 at 5:33 pm:
+
+- `Friday, September 11, 2026 at 5:33 pm`
+- `9/11/2026`
+- `9/11/2026 5:33 pm`
+- `202609111733`
+- `2026-09-11 1733`
+- `2026-09-11 - 1733`
+
+Weekdays and month names are English; am/pm is lowercase. The three compact formats use a 24-hour clock.
 
 ## Auto-save and numbering
 
@@ -49,7 +82,7 @@ move or rename any already-open document.
 | Next / previous match | F3 / Shift+F3 |
 | Go to line | Ctrl+G |
 | Undo / redo | Ctrl+Z / Ctrl+Y |
-| Insert time and date | F5 |
+| Insert Date/Time in last chosen format | F5 |
 | Close search | Escape |
 
 ## Data and recovery

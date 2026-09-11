@@ -33,6 +33,72 @@ Test("Atomic session backup recovers corrupt primary", () => { var store = new S
 Test("Session preserves unsaved text, caret, zoom, list width", () => { var d = new Document { Text = "unsaved\n中文", Caret = 4, Zoom = 170 }; var session = new Session { Windows = [new WindowSession { Documents = [d], DocumentList = true, ListWidth = 333 }] }; var store = new Store(Path.Combine(root, "session")); store.Write("s.json", session); var read = store.Read<Session>("s.json").Windows[0]; Assert(read.Documents[0].Text == d.Text && read.Documents[0].Dirty && read.Documents[0].Caret == 4 && read.Documents[0].Zoom == 170 && read.ListWidth == 333 && read.DocumentList); });
 Test("Binary content does not open as text", () => { string p = Path.Combine(root, "binary"); File.WriteAllBytes(p, [1, 0, 2, 0]); bool rejected = false; try { TextFiles.Open(p); } catch (InvalidDataException) { rejected = true; } Assert(rejected); });
 Test("Large text saves and reopens without truncation", () => { var d = new Document { Text = string.Concat(Enumerable.Repeat("line with unicode 中文\n", 100000)) }; string p = Path.Combine(root, "large.txt"); TextFiles.Save(d, p); Assert(TextFiles.Open(p).Text == d.Text); });
+var timestamp = new DateTime(2026, 9, 11, 17, 33, 0);
+string[] dateExamples = ["Friday, September 11, 2026 at 5:33 pm", "9/11/2026", "9/11/2026 5:33 pm", "202609111733", "2026-09-11 1733", "2026-09-11 - 1733"];
+for (int choice = 0; choice < dateExamples.Length; choice++)
+{
+    int format = choice;
+    Test($"Date/Time format {format + 1} matches requested punctuation and casing", () => Assert(DateTimeFormats.Format(timestamp, format) == dateExamples[format]));
+}
+Test("Date/Time handles midnight, noon, leap day and English under another locale", () =>
+{
+    var prior = System.Globalization.CultureInfo.CurrentCulture;
+    try
+    {
+        System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("zh-TW");
+        Assert(DateTimeFormats.Format(new DateTime(2028, 2, 29), 0) == "Tuesday, February 29, 2028 at 12:00 am");
+        Assert(DateTimeFormats.Format(new DateTime(2028, 2, 29, 12, 0, 0), 2) == "2/29/2028 12:00 pm");
+        Assert(DateTimeFormats.Format(timestamp, -1) == dateExamples[2]);
+    }
+    finally { System.Globalization.CultureInfo.CurrentCulture = prior; }
+});
+Test("Line numbers and Date/Time choices persist with backward-compatible defaults", () =>
+{
+    var store = new Store(Path.Combine(root, "view-settings"));
+    Assert(store.Read<Settings>("settings.json").LineNumbers);
+    store.Write("settings.json", new Settings { LineNumbers = false, DateTimeFormat = 5 });
+    var settings = store.Read<Settings>("settings.json"); Assert(!settings.LineNumbers && settings.DateTimeFormat == 5);
+});
+Test("Rename preserves exact file bytes and supports Unicode and spaces", () =>
+{
+    string old = Path.Combine(root, "rename source.txt"); byte[] bytes = [0xEF, 0xBB, 0xBF, 65, 13, 10, 66, 10]; File.WriteAllBytes(old, bytes);
+    string renamed = TextFiles.RenamePath(old, "Renamed 中文.txt"); TextFiles.Rename(old, renamed);
+    Assert(!File.Exists(old) && File.ReadAllBytes(renamed).SequenceEqual(bytes));
+});
+Test("Rename never overwrites an occupied filename", () =>
+{
+    string source = Path.Combine(root, "rename-original.txt"), dest = Path.Combine(root, "rename-occupied.txt");
+    File.WriteAllText(source, "original"); File.WriteAllText(dest, "occupied"); bool rejected = false;
+    try { TextFiles.Rename(source, dest); } catch (IOException) { rejected = true; }
+    Assert(rejected && File.ReadAllText(source) == "original" && File.ReadAllText(dest) == "occupied");
+});
+Test("Rename rejects invalid names, reserved devices, path traversal and trailing punctuation", () =>
+{
+    foreach (var name in new[] { "", " ", "../outside.txt", "..\\outside.txt", "a/b.txt", "a:b.txt", "CON.txt", "lpt1", "COM¹.txt", "name.", "name " })
+    {
+        bool rejected = false; try { TextFiles.RenamePath(Path.Combine(root, "original.txt"), name); } catch (ArgumentException) { rejected = true; }
+        Assert(rejected);
+    }
+});
+Test("Case-only rename succeeds without losing the file", () =>
+{
+    string source = Path.Combine(root, "case-rename.txt"); File.WriteAllText(source, "preserve");
+    string dest = TextFiles.RenamePath(source, "CASE-RENAME.txt"); TextFiles.Rename(source, dest);
+    Assert(File.ReadAllText(dest) == "preserve" && Directory.GetFiles(root).Any(p => Path.GetFileName(p) == "CASE-RENAME.txt"));
+});
+Test("Missing rename source leaves destination untouched", () =>
+{
+    bool rejected = false; string dest = Path.Combine(root, "must-not-exist.txt");
+    try { TextFiles.Rename(Path.Combine(root, "missing-source.txt"), dest); } catch (FileNotFoundException) { rejected = true; }
+    Assert(rejected && !File.Exists(dest));
+});
+Test("Replacement document cannot recreate a just-deleted path after a counter reset", () =>
+{
+    var settings = new Settings { AutoSaveDirectory = Path.Combine(root, "excluded") };
+    string excluded = Path.Combine(settings.AutoSaveDirectory, "Text 1.txt");
+    var document = DocumentFactory.Create(settings, excluded);
+    Assert(document.Name == "Text 2.txt" && File.Exists(document.Path) && !File.Exists(excluded));
+});
 Console.WriteLine($"\n{passed} passed, {failed} failed");
 // Only the unique directory created by this process is removed.
 Directory.Delete(root, true);

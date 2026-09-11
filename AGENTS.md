@@ -5,9 +5,11 @@
 Build a Windows plain-text editor, not a Windows Notepad clone. Preserve these requirements:
 
 - Create and edit plain-text files; no printing, Markdown rendering, rich text, or AI features.
-- Native standard Windows title bar, displaying `SinNotePad - <full path>` or the numbered name before a file has a path.
-- Horizontal tabs below the title bar, switchable to a left Document List with a resizable width.
-- Text zoom, logical line numbers in the editor gutter, and status-bar line/column information.
+- Native standard Windows title bar, displaying `Sin - Notepad - <full path>` or the numbered name before a file has a path.
+- Horizontal tabs below the menu bar, switchable to a left Document List with a resizable width. No document close X buttons in either layout.
+- Both navigation layouts offer Rename, Delete, Copy full path, Open containing folder, and Close through a right-click menu. Confirm deletion, use the Windows Recycle Bin, and preserve state on cancellation or failure.
+- Text zoom, logical line numbers in the editor gutter, and status-bar line/column information. Provide a persistent View → Line numbers toggle; numbers must remain visible while typing when enabled.
+- Edit → Date/Time offers the six requested English date/time formats. F5 repeats the last choice.
 - New documents numbered Text 1, Text 2, etc.; persist the counter across launches and offer an explicit reset.
 - Optional auto-save folder; create the file immediately and save subsequent edits. Never overwrite an existing file when numbering is reset.
 - Preserve text, undo history, selection and scrolling when changing navigation mode.

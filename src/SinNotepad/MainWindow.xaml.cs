@@ -35,7 +35,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 EditorHost.Content = editors[value.Id];
                 ExternalNotice.Visibility = Visibility.Collapsed;
                 UpdateStatus(); UpdateSearchStatus();
-                Title = "SinNotePad - " + (value.Path ?? value.Name);
+                Title = "Sin - Notepad - " + (value.Path ?? value.Name);
                 Dispatcher.BeginInvoke(() => { if (!IsLoaded) return; Tabs.ScrollIntoView(value); DocumentList.ScrollIntoView(value); }, DispatcherPriority.Loaded);
             }
             PropertyChanged?.Invoke(this, new(nameof(ActiveDocument)));
@@ -89,10 +89,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         autoSaveTimer.Start();
         Closed += (_, _) => { autoSaveTimer.Stop(); if (Application.Current.Windows.OfType<MainWindow>().Any() && !App.Current.Exiting) { App.Current.MarkChanged(); App.Current.SaveState(); } };
     }
-    public Document NewDocument()
+    public Document NewDocument(string? excludedPath = null)
     {
         Document doc;
-        try { doc = DocumentFactory.Create(Preferences); }
+        try { doc = DocumentFactory.Create(Preferences, excludedPath); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             doc = new Document { UntitledNumber = App.Current.NextNumber() };
@@ -106,7 +106,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var view = new EditorView(doc);
         editors[doc.Id] = view;
         Documents.Add(doc);
-        doc.PropertyChanged += (_, _) => { if (doc == ActiveDocument) { Title = "SinNotePad - " + (doc.Path ?? doc.Name); UpdateStatus(); } };
+        doc.PropertyChanged += (_, _) => { if (doc == ActiveDocument) { Title = "Sin - Notepad - " + (doc.Path ?? doc.Name); UpdateStatus(); } };
         view.Editor.SelectionChanged += (_, _) => { if (doc == ActiveDocument) UpdateStatus(); };
         view.Editor.TextChanged += (_, _) => { if (doc.AutoSave) { pendingAutoSaves[doc.Id] = DateTime.UtcNow; autoSaveErrors.Remove(doc.Id); } if (doc == ActiveDocument) { UpdateStatus(); UpdateSearchStatus(); } };
         view.Editor.PreviewMouseWheel += (_, e) => { if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { ChangeZoom(e.Delta > 0 ? 10 : -10); e.Handled = true; } };
@@ -115,6 +115,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
     public bool FlushAutoSaves(bool force)
     {
+        if (fileOperationDepth > 0) return true;
         bool success = true;
         foreach (var pending in pendingAutoSaves.ToArray())
         {
@@ -191,11 +192,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!Documents.Contains(doc) || !ConfirmSave(doc)) return false;
         RemoveDocument(doc); return true;
     }
-    internal void RemoveDocument(Document doc)
+    internal void RemoveDocument(Document doc, bool fileDeleted = false)
     {
         int index = Documents.IndexOf(doc); bool active = doc == ActiveDocument;
         Documents.Remove(doc); editors.Remove(doc.Id); noticedVersions.Remove(doc.Id); pendingAutoSaves.Remove(doc.Id); autoSaveErrors.Remove(doc.Id);
-        if (Documents.Count == 0) NewDocument(); else if (active) ActiveDocument = Documents[Math.Min(index, Documents.Count - 1)];
+        if (Documents.Count == 0) NewDocument(fileDeleted ? doc.Path : null); else if (active) ActiveDocument = Documents[Math.Min(index, Documents.Count - 1)];
         UpdateTabWidths(); FocusEditor(); App.Current.MarkChanged();
     }
     public bool PrepareClose()
@@ -449,7 +450,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         else if (e.Key == Key.Escape && SearchPanel.Visibility == Visibility.Visible) { CloseSearchClick(this, e); e.Handled = true; }
     }
     void CycleDocument(int direction) { if (Documents.Count > 0) ActiveDocument = Documents[(Documents.IndexOf(ActiveDocument!) + direction + Documents.Count) % Documents.Count]; FocusEditor(); }
-    void InsertDate() { if (Editor != null) Editor.SelectedText = DateTime.Now.ToString("t") + " " + DateTime.Now.ToString("d"); FocusEditor(); }
+    internal void InsertDate(int? choice = null, DateTime? now = null)
+    {
+        int format = DateTimeFormats.NormalizeChoice(choice ?? Preferences.DateTimeFormat);
+        if (Editor == null) return;
+        Editor.SelectedText = DateTimeFormats.Format(now ?? DateTime.Now, format);
+        Preferences.DateTimeFormat = format; App.Current.MarkChanged(); FocusEditor();
+    }
+    void DateTimeOpened(object sender, RoutedEventArgs e)
+    {
+        if (e.Source != DateTimeMenu) return;
+        PopulateDateTimeMenu(DateTime.Now);
+    }
+    internal void PopulateDateTimeMenu(DateTime now)
+    {
+        DateTimeMenu.Items.Clear();
+        for (int i = 0; i < DateTimeFormats.Count; i++)
+        {
+            int choice = i;
+            var item = new MenuItem
+            {
+                Header = DateTimeFormats.Format(now, choice),
+                IsCheckable = true,
+                IsChecked = choice == DateTimeFormats.NormalizeChoice(Preferences.DateTimeFormat),
+                ToolTip = "Insert this format; F5 repeats your last choice."
+            };
+            item.Click += (_, _) => InsertDate(choice);
+            DateTimeMenu.Items.Add(item);
+        }
+    }
     void MenuPreviewMouseDown(object sender, MouseButtonEventArgs e) { /* Editing actions explicitly target the current editor, preserving its selection. */ }
     void NewTabClick(object sender, RoutedEventArgs e) => NewDocument();
     void NewWindowClick(object sender, RoutedEventArgs e) { new MainWindow().Show(); }
@@ -472,7 +501,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     void PasteClick(object sender, RoutedEventArgs e) { Editor?.Paste(); FocusEditor(); }
     void DeleteClick(object sender, RoutedEventArgs e) { if (Editor != null) Editor.SelectedText = ""; FocusEditor(); }
     void SelectAllClick(object sender, RoutedEventArgs e) { Editor?.SelectAll(); FocusEditor(); }
-    void DateClick(object sender, RoutedEventArgs e) => InsertDate();
     void FindClick(object sender, RoutedEventArgs e) => ShowFind();
     void ReplaceClick(object sender, RoutedEventArgs e) => ShowFind(true);
     void FindNextClick(object sender, RoutedEventArgs e) => FindNext();
@@ -481,11 +509,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     void ZoomOutClick(object sender, RoutedEventArgs e) => ChangeZoom(-10);
     void ResetZoomClick(object sender, RoutedEventArgs e) => ChangeZoom(100, true);
     void StatusBarClick(object sender, RoutedEventArgs e) { Preferences.StatusBar = !Preferences.StatusBar; ApplyPreferences(); }
+    internal void SetLineNumbers(bool visible)
+    {
+        Preferences.LineNumbers = visible;
+        foreach (var window in Application.Current.Windows.OfType<MainWindow>()) window.ApplyPreferences();
+        App.Current.MarkChanged();
+    }
+    void LineNumbersClick(object sender, RoutedEventArgs e) => SetLineNumbers(!Preferences.LineNumbers);
     void WordWrapClick(object sender, RoutedEventArgs e) { Preferences.WordWrap = !Preferences.WordWrap; ApplyPreferences(); }
     void DocumentListClick(object sender, RoutedEventArgs e) => SetDocumentList(!IsDocumentList);
     void SettingsClick(object sender, RoutedEventArgs e) { Dialogs.Settings(this); foreach (var w in Application.Current.Windows.OfType<MainWindow>()) w.ApplyPreferences(); }
     void EditOpened(object sender, RoutedEventArgs e) { UndoMenu.IsEnabled = Editor?.CanUndo == true; RedoMenu.IsEnabled = Editor?.CanRedo == true; CutMenu.IsEnabled = CopyMenu.IsEnabled = DeleteMenu.IsEnabled = Editor?.SelectionLength > 0; }
-    void ViewOpened(object sender, RoutedEventArgs e) { StatusBarMenu.IsChecked = Preferences.StatusBar; WordWrapMenu.IsChecked = Preferences.WordWrap; DocumentListMenu.IsChecked = IsDocumentList; }
+    void ViewOpened(object sender, RoutedEventArgs e) { StatusBarMenu.IsChecked = Preferences.StatusBar; WordWrapMenu.IsChecked = Preferences.WordWrap; DocumentListMenu.IsChecked = IsDocumentList; LineNumbersMenu.IsChecked = Preferences.LineNumbers; }
     void RecentOpened(object sender, RoutedEventArgs e)
     {
         RecentMenu.Items.Clear();

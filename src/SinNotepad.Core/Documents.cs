@@ -86,6 +86,21 @@ public static class TextFiles
         return crlf >= lf && crlf >= cr ? "\r\n" : lf >= cr ? "\n" : "\r";
     }
     public static bool ChangedOnDisk(Document doc) => doc.Path != null && doc.Fingerprint != null && (!File.Exists(doc.Path) || Hash(File.ReadAllBytes(doc.Path)) != doc.Fingerprint);
+    public static string RenamePath(string path, string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+            fileName.EndsWith('.') || fileName.EndsWith(' ') || fileName.Length > 255 ||
+            Regex.IsMatch(fileName, @"^(CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])(\.|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            throw new ArgumentException("Enter a valid file name, including its extension, without a folder path or reserved Windows name.");
+        return Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, fileName);
+    }
+    public static void Rename(string path, string destination)
+    {
+        if (!File.Exists(path)) throw new FileNotFoundException("The file no longer exists at its original location.", path);
+        if (string.Equals(path, destination, StringComparison.Ordinal)) return;
+        // File.Move never replaces an existing destination; no save or re-encoding occurs.
+        File.Move(path, destination);
+    }
     public static void Save(Document doc, string path, bool overwriteConflict = false)
     {
         path = System.IO.Path.GetFullPath(path);
@@ -118,11 +133,13 @@ public sealed class Settings
     public string AutoSaveDirectory { get; set; } = "";
     public bool WordWrap { get; set; } = true;
     public bool StatusBar { get; set; } = true;
+    public bool LineNumbers { get; set; } = true;
     public bool RestoreSession { get; set; } = true;
     public bool OpenInNewWindow { get; set; }
     public bool RecentFiles { get; set; } = true;
     public bool DocumentList { get; set; }
     public double ListWidth { get; set; } = 250;
+    public int DateTimeFormat { get; set; } = DateTimeFormats.Default;
     public List<string> Recent { get; set; } = [];
 }
 public sealed class WindowSession
@@ -138,7 +155,7 @@ public sealed class WindowSession
 public sealed class Session { public int Version { get; set; } = 1; public List<WindowSession> Windows { get; set; } = []; }
 public static class DocumentFactory
 {
-    public static Document Create(Settings settings)
+    public static Document Create(Settings settings, string? excludedPath = null)
     {
         settings.NextDocumentNumber = Math.Max(1, settings.NextDocumentNumber);
         if (string.IsNullOrWhiteSpace(settings.AutoSaveDirectory)) return new Document { UntitledNumber = settings.NextDocumentNumber++ };
@@ -148,6 +165,7 @@ public static class DocumentFactory
         {
             var doc = new Document { UntitledNumber = settings.NextDocumentNumber++, AutoSave = true };
             string path = System.IO.Path.Combine(directory, doc.Name + ".txt");
+            if (string.Equals(path, excludedPath, StringComparison.OrdinalIgnoreCase)) continue;
             // Reserve the filename atomically: resetting numbering can never overwrite an existing file.
             try { using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read); }
             catch (IOException) when (File.Exists(path)) { continue; }
