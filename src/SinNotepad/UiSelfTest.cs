@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 using SinNotepad.Core;
@@ -29,6 +30,9 @@ internal static class UiSelfTest
             Check(Descendants(window.MainMenu).OfType<AccessText>().All(t => t.ActualHeight >= 16), "Menu labels have enough height to render");
             Check(window.ActiveDocument!.Name == "Text 1", "First document is Text 1");
             Check(app.Preferences.AutoSaveAllOnClose, "Close auto-save is enabled by default");
+            var initialEditor = window.Editor!;
+            var editorScrollBars = Descendants(initialEditor).OfType<ScrollBar>().ToArray();
+            Check(initialEditor.Cursor == Cursors.IBeam && editorScrollBars.Length >= 2 && editorScrollBars.All(scrollBar => scrollBar.Cursor == Cursors.Arrow), "Editor uses an insertion cursor while its scrollbars use the Windows arrow cursor");
             Check(GlyphCount(window.CurrentView!.Gutter) == 1, "An empty document visibly renders line number 1");
             Check(window.Title == "Sin - Notepad - Text 1" && System.Windows.Shell.WindowChrome.GetWindowChrome(window) == null, "Standard native title bar shows the new document name");
             Check(window.MainMenu.TranslatePoint(new Point(0, window.MainMenu.ActualHeight), window).Y <= window.HorizontalNavigation.TranslatePoint(new Point(), window).Y, "Tabs sit below the menu bar");

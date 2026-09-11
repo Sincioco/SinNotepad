@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using SinNotepad.Core;
@@ -39,7 +40,13 @@ public sealed class EditorView : Grid
             Text = doc.Text,
             TextWrapping = App.Current.Preferences.WordWrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
             SelectionOpacity = 0.45,
+            Cursor = Cursors.IBeam,
         };
+        Style scrollBarCursorStyle = Application.Current.TryFindResource(typeof(ScrollBar)) is Style baseScrollBarStyle
+            ? new Style(typeof(ScrollBar), baseScrollBarStyle)
+            : new Style(typeof(ScrollBar));
+        scrollBarCursorStyle.Setters.Add(new Setter(CursorProperty, Cursors.Arrow));
+        Editor.Resources[typeof(ScrollBar)] = scrollBarCursorStyle;
         // Use the standard native WPF text surface, with no Fluent focus border or formatting features.
         var template = new ControlTemplate(typeof(TextBox));
         var scroll = new FrameworkElementFactory(typeof(ScrollViewer));

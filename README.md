@@ -15,6 +15,7 @@ The packaged Windows x64 app includes its .NET runtime. No installation or admin
 - Horizontal tabs sit below the menu bar. Choose **View → Document List** or press **Ctrl+Shift+L** to switch to a vertical list on the left. Drag its right edge to resize it. The width is remembered.
 - Select documents in either layout; drag tabs or list rows to reorder them. The document's editor and undo stack stay intact when switching layouts.
 - Logical line numbers appear to the left of the text and remain visible while typing. Toggle them with **View → Line numbers**; the preference is remembered and applies to new documents too. Wrapped continuations do not receive extra line numbers. Hiding the gutter leaves the status-bar line/column information available.
+- The pointer uses the text insertion cursor over editable text and the standard Windows arrow over editor scrollbars.
 - The status bar shows line, column, total lines, character count, selection count, zoom, line endings and encoding.
 - Zoom changes only how large text appears. Files contain plain text, without formatting.
 

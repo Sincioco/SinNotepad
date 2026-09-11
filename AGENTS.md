@@ -9,6 +9,7 @@ Build a Windows plain-text editor, not a Windows Notepad clone. Preserve these r
 - Horizontal tabs below the menu bar, switchable to a left Document List with a resizable width. No document close X buttons in either layout.
 - Both navigation layouts offer Rename, Delete, Copy full path, Open containing folder, and Close through a right-click menu. Confirm deletion, use the Windows Recycle Bin, and preserve state on cancellation or failure.
 - Text zoom, logical line numbers in the editor gutter, and status-bar line/column information. Provide a persistent View → Line numbers toggle; numbers must remain visible without flickering while typing when enabled. Retain valid drawings during text layout and test intermediate rendered frames, not just the final state after edits.
+- Use the text insertion cursor over editable text and the standard Windows arrow cursor over the editor scrollbars.
 - Edit → Date/Time offers the six requested English date/time formats. F5 repeats the last choice.
 - Ctrl+D always inserts the long English date/time (for example, Friday, September 11, 2026 at 7:08 pm) without changing the F5 preference. Ctrl+L inserts exactly 80 underscores; Ctrl+Shift+L still toggles Document List.
 - Ctrl+I inserts the long English date/time followed by a newline and exactly 80 underscores as one undoable edit, preserving the F5 preference.
