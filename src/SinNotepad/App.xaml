@@ -18,7 +18,6 @@
      <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource HoverBrush}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.6"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter TargetName="Chrome" Property="BorderThickness" Value="1"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger></ControlTemplate.Triggers>
     </ControlTemplate></Setter.Value></Setter>
    </Style>
-   <BitmapImage x:Key="AppIcon" UriSource="pack://application:,,,/Assets/SinNotepad.ico"/>
    <Style x:Key="StatusText" TargetType="TextBlock"><Setter Property="FontSize" Value="11"/><Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Margin" Value="12,0"/></Style>
    <ControlTemplate x:Key="CompactMenuHeader" TargetType="MenuItem">
     <Grid>

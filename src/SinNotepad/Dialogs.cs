@@ -110,6 +110,19 @@ public static class Dialogs
         System.Windows.Automation.AutomationProperties.SetName(saveAllOnClose, "Auto-save all when Sin - Notepad closes");
         var restore = new CheckBox { Content = "Restore open documents when the app starts", IsChecked = p.RestoreSession, Margin = new Thickness(0, 3, 0, 8) }; panel.Children.Add(restore);
         var error = new TextBlock { Foreground = Brushes.IndianRed, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 10) }; panel.Children.Add(error);
+        Label("Text file association", "Windows protects default-app choices. Choose an app below, then confirm .txt in Windows Settings.");
+        var associationRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left };
+        associationRow.Children.Add(Button("Use Sin - Notepad for .txt files", () =>
+        {
+            try { FileAssociations.OpenSinNotepadDefaults(); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception) { error.Text = "Could not open Default apps: " + ex.Message; }
+        }));
+        associationRow.Children.Add(Button("Use Microsoft Notepad for .txt files", () =>
+        {
+            try { FileAssociations.OpenMicrosoftNotepadDefaults(); }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception) { error.Text = "Could not open Default apps: " + ex.Message; }
+        }));
+        panel.Children.Add(associationRow);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
         buttons.Children.Add(Button("Save", () =>
         {

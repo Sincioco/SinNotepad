@@ -39,6 +39,7 @@ internal static class UiSelfTest
             Check(initialEditor.Cursor == Cursors.IBeam && editorScrollBars.Length >= 2 && editorScrollBars.All(scrollBar => scrollBar.Cursor == Cursors.Arrow), "Editor uses an insertion cursor while its scrollbars use the Windows arrow cursor");
             Check(GlyphCount(window.CurrentView!.Gutter) == 1, "An empty document visibly renders line number 1");
             Check(window.Title == "Sin - Notepad - Text 1" && System.Windows.Shell.WindowChrome.GetWindowChrome(window) == null, "Standard native title bar shows the new document name");
+            Check(window.Icon == null, "Window lets Windows select a taskbar-sized executable icon frame");
             Check(window.MainMenu.TranslatePoint(new Point(0, window.MainMenu.ActualHeight), window).Y <= window.HorizontalNavigation.TranslatePoint(new Point(), window).Y, "Tabs sit below the menu bar");
             Check(!Descendants(window.Tabs).OfType<Button>().Any(), "Tabs have no close X buttons");
             Check(window.CreateDocumentMenu(window.ActiveDocument!).Items.OfType<MenuItem>().Last().IsEnabled &&
