@@ -53,6 +53,8 @@ public partial class App : Application
             MessageBox.Show(message, "Sin - Notepad", MessageBoxButton.OK, MessageBoxImage.Error);
         };
         if (TestMode) { await UiSelfTest.Run(this); return; }
+        try { FileAssociations.Register(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         _ = ListenForFiles();
         var session = Preferences.RestoreSession ? Store.Read<Session>("session.json") : new Session();
         foreach (var saved in session.Windows.Where(w => w.Documents.Count > 0)) { var window = new MainWindow(saved); window.Show(); }

@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Microsoft.Win32;
 using SinNotepad.Core;
 
 namespace SinNotepad;
@@ -40,6 +41,16 @@ internal static class UiSelfTest
             Check(GlyphCount(window.CurrentView!.Gutter) == 1, "An empty document visibly renders line number 1");
             Check(window.Title == "Sin - Notepad - Text 1" && System.Windows.Shell.WindowChrome.GetWindowChrome(window) == null, "Standard native title bar shows the new document name");
             Check(window.Icon == null, "Window lets Windows select a taskbar-sized executable icon frame");
+            string associationTestKey = @"Software\SinNotepad\SelfTest-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                using var associationTest = Registry.CurrentUser.CreateSubKey(associationTestKey);
+                const string testExecutable = @"C:\Apps\Sin - Notepad.exe";
+                FileAssociations.Register(associationTest, testExecutable);
+                using var associatedIcon = associationTest.OpenSubKey(@"Classes\Applications\Sin - Notepad.exe\DefaultIcon");
+                Check((string?)associatedIcon?.GetValue(null) == $"\"{testExecutable}\",0", "The Windows application association supplies the Sin Notepad file icon");
+            }
+            finally { Registry.CurrentUser.DeleteSubKeyTree(associationTestKey, false); }
             Check(window.MainMenu.TranslatePoint(new Point(0, window.MainMenu.ActualHeight), window).Y <= window.HorizontalNavigation.TranslatePoint(new Point(), window).Y, "Tabs sit below the menu bar");
             Check(!Descendants(window.Tabs).OfType<Button>().Any(), "Tabs have no close X buttons");
             Check(window.CreateDocumentMenu(window.ActiveDocument!).Items.OfType<MenuItem>().Last().IsEnabled &&

@@ -18,21 +18,29 @@ internal static class FileAssociations
     public static void OpenSinNotepadDefaults()
     {
         Register();
+        Thread.Sleep(500);
         OpenSettings("ms-settings:defaultapps?registeredAppUser=Sin%20-%20Notepad");
     }
 
     public static void OpenMicrosoftNotepadDefaults() =>
         OpenSettings("ms-settings:defaultapps?registeredAUMID=Microsoft.WindowsNotepad_8wekyb3d8bbwe%21App");
 
-    static void Register()
+    public static void Register()
     {
         string executable = Environment.ProcessPath ?? throw new IOException("The application path is unavailable.");
+        using var software = Registry.CurrentUser.CreateSubKey("Software");
+        Register(software, executable);
+        SHChangeNotify(AssociationChanged, FlushNotification, IntPtr.Zero, IntPtr.Zero);
+    }
+
+    internal static void Register(RegistryKey software, string executable)
+    {
         string icon = $"\"{executable}\",0";
         string command = $"\"{executable}\" \"%1\"";
 
-        using (var registered = Registry.CurrentUser.CreateSubKey(@"Software\RegisteredApplications"))
+        using (var registered = software.CreateSubKey("RegisteredApplications"))
             registered.SetValue(ApplicationName, @"Software\SinNotepad\Capabilities");
-        using (var capabilities = Registry.CurrentUser.CreateSubKey(@"Software\SinNotepad\Capabilities"))
+        using (var capabilities = software.CreateSubKey(@"SinNotepad\Capabilities"))
         {
             capabilities.SetValue("ApplicationName", ApplicationName);
             capabilities.SetValue("ApplicationDescription", "Plain-text editor with tabs and a resizable document list.");
@@ -40,18 +48,18 @@ internal static class FileAssociations
             using var associations = capabilities.CreateSubKey("FileAssociations");
             associations.SetValue(".txt", ProgId);
         }
-        using (var type = Registry.CurrentUser.CreateSubKey(@"Software\Classes\" + ProgId)) type.SetValue(null, "Text Document");
-        using (var defaultIcon = Registry.CurrentUser.CreateSubKey(@"Software\Classes\" + ProgId + @"\DefaultIcon")) defaultIcon.SetValue(null, icon);
-        using (var open = Registry.CurrentUser.CreateSubKey(@"Software\Classes\" + ProgId + @"\shell\open\command")) open.SetValue(null, command);
-        using (var application = Registry.CurrentUser.CreateSubKey(@"Software\Classes\Applications\Sin - Notepad.exe"))
+        using (var type = software.CreateSubKey(@"Classes\" + ProgId)) type.SetValue(null, "Text Document");
+        using (var defaultIcon = software.CreateSubKey(@"Classes\" + ProgId + @"\DefaultIcon")) defaultIcon.SetValue(null, icon);
+        using (var open = software.CreateSubKey(@"Classes\" + ProgId + @"\shell\open\command")) open.SetValue(null, command);
+        const string applicationKey = @"Classes\Applications\Sin - Notepad.exe";
+        using (var application = software.CreateSubKey(applicationKey))
         {
             application.SetValue("FriendlyAppName", ApplicationName);
             using var supported = application.CreateSubKey("SupportedTypes");
             supported.SetValue(".txt", "");
         }
-        using (var applicationOpen = Registry.CurrentUser.CreateSubKey(@"Software\Classes\Applications\Sin - Notepad.exe\shell\open\command")) applicationOpen.SetValue(null, command);
-        SHChangeNotify(AssociationChanged, FlushNotification, IntPtr.Zero, IntPtr.Zero);
-        Thread.Sleep(500);
+        using (var applicationIcon = software.CreateSubKey(applicationKey + @"\DefaultIcon")) applicationIcon.SetValue(null, icon);
+        using (var applicationOpen = software.CreateSubKey(applicationKey + @"\shell\open\command")) applicationOpen.SetValue(null, command);
     }
 
     static void OpenSettings(string uri) => Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
