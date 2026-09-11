@@ -5,7 +5,7 @@
     <AssemblyName>Sin - Notepad</AssemblyName>
     <RootNamespace>SinNotepad</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
     <Description>Native Windows text editor with tabs and a resizable document list.</Description>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../SinNotepad.Core/SinNotepad.Core.csproj" /></ItemGroup>

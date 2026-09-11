@@ -7,7 +7,7 @@ Validated on Windows 11 x64 with .NET SDK 10.0.400 on September 11, 2026.
 - Release solution build: passed, zero warnings and zero errors.
 - Self-contained Windows x64 package: passed; runtime bundled in one executable.
 - Core tests: **51 passed, 0 failed**.
-- WPF editor integration tests: **84 passed**.
+- WPF editor integration tests: **91 passed**.
 - Source whitespace formatting and Git whitespace checks: passed.
 
 Core tests exercise Unicode/encoding and line-ending round trips, unchanged mixed endings, external-edit
@@ -41,6 +41,12 @@ positions are unchanged. Other checks verify empty-document drawing, updated gly
 line 200 after scrolling, and repositioning subsequent numbers when an earlier paragraph wraps.
 
 ## Native interface observations
+
+Version 1.1.2 adds regression checks for Ctrl+D's exact long English date/time output, Ctrl+L's exact
+80-underscore output without a newline, selection replacement, caret placement, single-step undo,
+preservation of the F5 preference, and modifier separation from Ctrl+Shift+L.
+The native isolated-session check also exercised Ctrl+D, Ctrl+L and Ctrl+Shift+L directly: the date used
+the requested format, the separator ended at column 81, and the navigation toggle retained the text.
 
 - Launched the packaged executable successfully.
 - Observed the standard Windows title bar, menus above tabs, aligned line numbers, and status bar.

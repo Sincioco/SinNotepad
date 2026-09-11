@@ -33,6 +33,7 @@
     <MenuItem Header="_Go to" InputGestureText="Ctrl+G" Click="GoToClick"/>
     <Separator/><MenuItem Header="Select _all" InputGestureText="Ctrl+A" Click="SelectAllClick"/>
     <MenuItem x:Name="DateTimeMenu" Header="_Date/Time" InputGestureText="F5" SubmenuOpened="DateTimeOpened"><MenuItem Header="Choose a format"/></MenuItem>
+    <MenuItem Header="Insert _separator (80 underscores)" InputGestureText="Ctrl+L" Click="InsertSeparatorClick"/>
    </MenuItem>
    <MenuItem Header="_View" Template="{StaticResource CompactMenuHeader}" SubmenuOpened="ViewOpened">
     <MenuItem Header="_Zoom"><MenuItem Header="Zoom in" InputGestureText="Ctrl+Plus" Click="ZoomInClick"/><MenuItem Header="Zoom out" InputGestureText="Ctrl+Minus" Click="ZoomOutClick"/><MenuItem Header="Restore default zoom" InputGestureText="Ctrl+0" Click="ResetZoomClick"/></MenuItem>

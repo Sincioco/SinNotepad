@@ -421,6 +421,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     void WindowKeyDown(object sender, KeyEventArgs e)
     {
         ModifierKeys modifiers = Keyboard.Modifiers;
+        if (TryInsertShortcut(e.Key, modifiers)) { e.Handled = true; return; }
         bool ctrl = modifiers.HasFlag(ModifierKeys.Control), shift = modifiers.HasFlag(ModifierKeys.Shift), alt = modifiers.HasFlag(ModifierKeys.Alt);
         if (ctrl)
         {
@@ -450,13 +451,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         else if (e.Key == Key.Escape && SearchPanel.Visibility == Visibility.Visible) { CloseSearchClick(this, e); e.Handled = true; }
     }
     void CycleDocument(int direction) { if (Documents.Count > 0) ActiveDocument = Documents[(Documents.IndexOf(ActiveDocument!) + direction + Documents.Count) % Documents.Count]; FocusEditor(); }
-    internal void InsertDate(int? choice = null, DateTime? now = null)
+    internal bool TryInsertShortcut(Key key, ModifierKeys modifiers, DateTime? now = null)
+    {
+        if (modifiers != ModifierKeys.Control || Editor == null) return false;
+        if (key == Key.D) { InsertDate(0, now, rememberChoice: false); return true; }
+        if (key == Key.L) { InsertAtCaret(new string('_', 80)); return true; }
+        return false;
+    }
+    void InsertAtCaret(string text)
+    {
+        if (Editor == null) return;
+        int start = Editor.SelectionStart;
+        Editor.SelectedText = text;
+        Editor.Select(start + text.Length, 0);
+        FocusEditor();
+    }
+    internal void InsertDate(int? choice = null, DateTime? now = null, bool rememberChoice = true)
     {
         int format = DateTimeFormats.NormalizeChoice(choice ?? Preferences.DateTimeFormat);
         if (Editor == null) return;
-        Editor.SelectedText = DateTimeFormats.Format(now ?? DateTime.Now, format);
-        Preferences.DateTimeFormat = format; App.Current.MarkChanged(); FocusEditor();
+        InsertAtCaret(DateTimeFormats.Format(now ?? DateTime.Now, format));
+        if (rememberChoice) { Preferences.DateTimeFormat = format; App.Current.MarkChanged(); }
     }
+    void InsertSeparatorClick(object sender, RoutedEventArgs e) => InsertAtCaret(new string('_', 80));
     void DateTimeOpened(object sender, RoutedEventArgs e)
     {
         if (e.Source != DateTimeMenu) return;
@@ -473,6 +490,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 Header = DateTimeFormats.Format(now, choice),
                 IsCheckable = true,
                 IsChecked = choice == DateTimeFormats.NormalizeChoice(Preferences.DateTimeFormat),
+                InputGestureText = choice == 0 ? "Ctrl+D" : "",
                 ToolTip = "Insert this format; F5 repeats your last choice."
             };
             item.Click += (_, _) => InsertDate(choice);

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using SinNotepad.Core;
 
@@ -43,6 +44,18 @@ internal static class UiSelfTest
             Check(editor.Text.Contains("2026-09-12 - 0805"), "F5 uses the most recently chosen Date/Time format");
             window.PopulateDateTimeMenu(new DateTime(2026, 9, 11, 17, 33, 0));
             Check(window.DateTimeMenu.Items.Count == 6 && ((MenuItem)window.DateTimeMenu.Items[5]).IsChecked, "Date/Time submenu exposes all six choices and marks the current choice");
+            editor.Text = "before selected after"; editor.ClearUndo(); editor.Select(7, 8);
+            Check(window.TryInsertShortcut(Key.D, ModifierKeys.Control, new DateTime(2026, 9, 11, 19, 8, 0)) &&
+                editor.Text == "before Friday, September 11, 2026 at 7:08 pm after", "Ctrl+D inserts the requested long English date/time format");
+            Check(app.Preferences.DateTimeFormat == 5 && editor.SelectionLength == 0, "Ctrl+D leaves the F5 preference intact and places the caret after the date");
+            editor.Undo(); Check(editor.Text == "before selected after", "Ctrl+D insertion is a single undoable edit");
+            editor.Select(7, 8);
+            bool navigationBefore = window.IsDocumentList;
+            Check(window.TryInsertShortcut(Key.L, ModifierKeys.Control) && editor.Text == "before " + new string('_', 80) + " after", "Ctrl+L inserts exactly 80 underscores without adding a newline");
+            Check(editor.SelectionStart == 87 && editor.SelectionLength == 0 && window.IsDocumentList == navigationBefore, "Ctrl+L leaves navigation unchanged and the caret after the separator");
+            editor.Undo(); Check(editor.Text == "before selected after", "Ctrl+L insertion is a single undoable edit");
+            Check(!window.TryInsertShortcut(Key.L, ModifierKeys.Control | ModifierKeys.Shift) &&
+                !window.TryInsertShortcut(Key.D, ModifierKeys.Control | ModifierKeys.Alt) && editor.Text == "before selected after", "Insertion shortcuts require plain Ctrl and leave Ctrl+Shift+L available for navigation");
             editor.Text = "first line\nsecond line\nthird line";
             editor.ClearUndo(); editor.CaretIndex = editor.Text.Length; editor.SelectedText = " edited";
             Check(first.Dirty, "Editing marks the document modified");
