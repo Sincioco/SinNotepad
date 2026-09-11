@@ -54,7 +54,7 @@ Weekdays and month names are English; am/pm is lowercase. The three compact form
 **Ctrl+D** always inserts the current local date/time in the long English format, such as
 `Friday, September 11, 2026 at 7:08 pm`, without changing your F5 format preference.
 **Ctrl+L** inserts exactly 80 underscores at the caret, with no added newline.
-**Ctrl+I** combines them: the long date/time, then 80 underscores on the next line. It is also available
+**Ctrl+I** combines them: the long date/time, then 80 underscores on the next line, followed by two line breaks. It is also available
 under **Edit → Insert date/time and separator**. All three shortcuts replace any selected text, place
 the caret after the insertion, and can be undone with one Ctrl+Z. Ctrl+I also preserves your F5 preference.
 
@@ -96,7 +96,7 @@ move or rename any already-open document.
 | Insert Date/Time in last chosen format | F5 |
 | Insert long English date/time | Ctrl+D |
 | Insert 80 underscores | Ctrl+L |
-| Insert long date/time, then 80 underscores on the next line | Ctrl+I |
+| Insert long date/time, then 80 underscores on the next line and two trailing line breaks | Ctrl+I |
 | Close search | Escape |
 
 ## Data and recovery

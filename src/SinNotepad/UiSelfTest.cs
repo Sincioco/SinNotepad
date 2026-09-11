@@ -89,9 +89,9 @@ internal static class UiSelfTest
             Check(!window.TryInsertShortcut(Key.L, ModifierKeys.Control | ModifierKeys.Shift) &&
                 !window.TryInsertShortcut(Key.D, ModifierKeys.Control | ModifierKeys.Alt) && editor.Text == "before selected after", "Insertion shortcuts require plain Ctrl and leave Ctrl+Shift+L available for navigation");
             editor.Select(7, 8);
-            string dateAndSeparator = "Friday, September 11, 2026 at 7:08 pm\r\n" + new string('_', 80);
+            string dateAndSeparator = "Friday, September 11, 2026 at 7:08 pm\r\n" + new string('_', 80) + "\r\n\r\n";
             Check(window.TryInsertShortcut(Key.I, ModifierKeys.Control, new DateTime(2026, 9, 11, 19, 8, 0)) &&
-                editor.Text == "before " + dateAndSeparator + " after", "Ctrl+I replaces the selection with the long date/time and exactly 80 underscores on the next line");
+                editor.Text == "before " + dateAndSeparator + " after", "Ctrl+I adds two line breaks after the long date/time and 80-underscore separator");
             Check(editor.SelectionStart == 7 + dateAndSeparator.Length && editor.SelectionLength == 0 &&
                 app.Preferences.DateTimeFormat == 5 && window.IsDocumentList == navigationBefore, "Ctrl+I places the caret after the separator and preserves the F5 preference and navigation layout");
             editor.Undo(); Check(editor.Text == "before selected after", "Ctrl+I date/time and separator are undone together in one step");
@@ -185,6 +185,7 @@ internal static class UiSelfTest
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(restored.Documents.Count == 2 && restored.ActiveDocument!.Text == first.Text, "Session restores unsaved text and tab order");
             Check(restored.IsDocumentList && restored.ActiveDocument!.Id == first.Id, "Session restores navigation mode and selected document");
+            Check(Math.Abs(restored.ListColumn.ActualWidth - 310) < 2, "Session restores the saved Document List splitter position");
             app.Preferences.AutoSaveDirectory = Path.Combine(app.Store.DirectoryPath, "auto-save");
             app.Preferences.NextDocumentNumber = 50;
             var auto = window.NewDocument();

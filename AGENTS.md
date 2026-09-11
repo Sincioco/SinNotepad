@@ -12,7 +12,7 @@ Build a Windows plain-text editor, not a Windows Notepad clone. Preserve these r
 - Use the text insertion cursor over editable text and the standard Windows arrow cursor over the editor scrollbars.
 - Edit → Date/Time offers the six requested English date/time formats. F5 repeats the last choice.
 - Ctrl+D always inserts the long English date/time (for example, Friday, September 11, 2026 at 7:08 pm) without changing the F5 preference. Ctrl+L inserts exactly 80 underscores; Ctrl+Shift+L still toggles Document List.
-- Ctrl+I inserts the long English date/time followed by a newline and exactly 80 underscores as one undoable edit, preserving the F5 preference.
+- Ctrl+I inserts the long English date/time followed by a newline, exactly 80 underscores, and two trailing line breaks as one undoable edit, preserving the F5 preference.
 - New documents numbered Text 1, Text 2, etc.; persist the counter across launches and offer an explicit reset.
 - Optional auto-save folder; create the file immediately and save subsequent edits. Never overwrite an existing file when numbering is reset.
 - Auto-save all changed documents that already have a file path when the app closes, enabled by default and configurable in Settings. Keep pathless documents in session recovery or prompt for a path when session restoration is disabled.

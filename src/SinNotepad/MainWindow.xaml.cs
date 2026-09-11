@@ -240,7 +240,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
     void ClampSidebar()
     {
-        if (!IsDocumentList) return;
+        if (!IsDocumentList || Workspace.ActualWidth <= 0) return;
         double maximum = Math.Max(150, Math.Min(900, Workspace.ActualWidth - 245));
         ListColumn.MaxWidth = maximum;
         if (ListColumn.Width.Value > maximum) ListColumn.Width = new GridLength(maximum);
@@ -480,7 +480,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (rememberChoice) { Preferences.DateTimeFormat = format; App.Current.MarkChanged(); }
     }
     void InsertSeparatorClick(object sender, RoutedEventArgs e) => InsertAtCaret(new string('_', 80));
-    void InsertDateAndSeparator(DateTime? now = null) => InsertAtCaret(DateTimeFormats.Format(now ?? DateTime.Now, 0) + Environment.NewLine + new string('_', 80));
+    void InsertDateAndSeparator(DateTime? now = null) => InsertAtCaret(DateTimeFormats.Format(now ?? DateTime.Now, 0) + Environment.NewLine + new string('_', 80) + Environment.NewLine + Environment.NewLine);
     void InsertDateAndSeparatorClick(object sender, RoutedEventArgs e) => InsertDateAndSeparator();
     void DateTimeOpened(object sender, RoutedEventArgs e)
     {
