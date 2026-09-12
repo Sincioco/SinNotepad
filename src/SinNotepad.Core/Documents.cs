@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace SinNotepad.Core;
@@ -25,7 +26,8 @@ public sealed class Document : INotifyPropertyChanged
     public double Scroll { get; set; }
     public double HorizontalScroll { get; set; }
     public int Zoom { get; set; } = 100;
-    public bool Dirty => Text != SavedText || EncodingName != SavedEncoding || NewLine != SavedNewLine;
+    [JsonIgnore] public bool EditPending { get; set; }
+    public bool Dirty => EditPending || Text != SavedText || EncodingName != SavedEncoding || NewLine != SavedNewLine;
     public string Name => Path != null ? System.IO.Path.GetFileName(Path) : $"Text {UntitledNumber}";
     public string AccessibleName => $"{Name}. {(Dirty ? "Modified" : "Unmodified")}.";
     public string Tooltip => (Path ?? Name) + (Dirty ? "\nUnsaved changes" : "");

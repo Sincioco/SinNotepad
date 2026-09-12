@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using SinNotepad.Core;
 
 namespace SinNotepad;
@@ -16,9 +17,14 @@ internal static class TextBoxExtensions
 
 public sealed class EditorView : Grid
 {
+    readonly DispatcherTimer documentSyncTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    bool textSyncPending;
+    bool selectionSyncPending;
     public TextBox Editor { get; }
     public LineNumberGutter Gutter { get; }
     public Document Document { get; }
+    public bool HasPendingSynchronization => textSyncPending || selectionSyncPending;
+    public event EventHandler? DocumentSynchronized;
     public EditorView(Document doc)
     {
         Document = doc;
@@ -64,8 +70,17 @@ public sealed class EditorView : Grid
         SetColumn(Editor, 1); Children.Add(Editor);
         Gutter = new LineNumberGutter(Editor) { Visibility = App.Current.Preferences.LineNumbers ? Visibility.Visible : Visibility.Collapsed };
         Children.Add(Gutter);
-        Editor.TextChanged += (_, _) => { doc.Text = TextFiles.Normalize(Editor.Text); doc.Notify(); Gutter.Rebuild(); App.Current.MarkChanged(); };
-        Editor.SelectionChanged += (_, _) => { doc.Caret = TextFiles.ToNormalizedOffset(Editor.Text, Editor.SelectionStart); doc.SelectionLength = TextFiles.ToNormalizedOffset(Editor.Text, Editor.SelectionStart + Editor.SelectionLength) - doc.Caret; };
+        documentSyncTimer.Tick += (_, _) => SynchronizeDocument();
+        Editor.TextChanged += (_, _) =>
+        {
+            bool wasDirty = doc.Dirty;
+            doc.EditPending = true;
+            textSyncPending = selectionSyncPending = true;
+            if (!wasDirty) doc.Notify();
+            QueueDocumentSync();
+            App.Current.MarkChanged();
+        };
+        Editor.SelectionChanged += (_, _) => { selectionSyncPending = true; QueueDocumentSync(); };
         Editor.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((_, _) => { Gutter.RequestRefresh(); doc.Scroll = Editor.VerticalOffset; doc.HorizontalScroll = Editor.HorizontalOffset; }));
         Editor.SizeChanged += (_, _) => Gutter.RequestRefresh();
         Loaded += (_, _) =>
@@ -76,6 +91,35 @@ public sealed class EditorView : Grid
             Editor.ScrollToVerticalOffset(doc.Scroll); Editor.ScrollToHorizontalOffset(doc.HorizontalScroll); Gutter.Rebuild();
         };
         Editor.ClearUndo();
+    }
+    void QueueDocumentSync()
+    {
+        documentSyncTimer.Stop();
+        documentSyncTimer.Start();
+    }
+    public void SynchronizeDocument()
+    {
+        if (!HasPendingSynchronization) return;
+        documentSyncTimer.Stop();
+        string raw = Editor.Text;
+        bool textChanged = textSyncPending;
+        if (textChanged) Document.Text = TextFiles.Normalize(raw);
+        Document.Caret = TextFiles.ToNormalizedOffset(raw, Editor.SelectionStart);
+        Document.SelectionLength = TextFiles.ToNormalizedOffset(raw, Editor.SelectionStart + Editor.SelectionLength) - Document.Caret;
+        textSyncPending = selectionSyncPending = false;
+        Document.EditPending = false;
+        if (textChanged)
+        {
+            Document.Notify();
+            Gutter.Rebuild();
+            DocumentSynchronized?.Invoke(this, EventArgs.Empty);
+        }
+    }
+    public void StopSynchronization()
+    {
+        documentSyncTimer.Stop();
+        textSyncPending = selectionSyncPending = false;
+        Document.EditPending = false;
     }
     public void ApplyPreferences()
     {

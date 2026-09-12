@@ -29,6 +29,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         set
         {
             if (value == null || value == activeDocument || !Documents.Contains(value)) return;
+            if (activeDocument != null) editors.GetValueOrDefault(activeDocument.Id)?.SynchronizeDocument();
             activeDocument = value;
             if (EditorHost != null)
             {
@@ -45,6 +46,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public EditorView? CurrentView => ActiveDocument == null ? null : editors.GetValueOrDefault(ActiveDocument.Id);
     public TextBox? Editor => CurrentView?.Editor;
     public bool IsDocumentList { get; private set; }
+    public bool HasPendingEditorSynchronization => editors.Values.Any(view => view.HasPendingSynchronization);
     double savedListWidth = 250;
     Point dragOrigin;
     Document? dragDocument;
@@ -87,7 +89,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Loaded += (_, _) => { initialized = true; UpdateTabWidths(); ApplyPreferences(); Editor?.Focus(); };
         autoSaveTimer.Tick += (_, _) => FlushAutoSaves(false);
         autoSaveTimer.Start();
-        Closed += (_, _) => { autoSaveTimer.Stop(); if (Application.Current.Windows.OfType<MainWindow>().Any() && !App.Current.Exiting) { App.Current.MarkChanged(); App.Current.SaveState(); } };
+        Closed += (_, _) => { autoSaveTimer.Stop(); foreach (var view in editors.Values) view.StopSynchronization(); if (Application.Current.Windows.OfType<MainWindow>().Any() && !App.Current.Exiting) { App.Current.MarkChanged(); App.Current.SaveState(); } };
     }
     public Document NewDocument(string? excludedPath = null)
     {
@@ -106,9 +108,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var view = new EditorView(doc);
         editors[doc.Id] = view;
         Documents.Add(doc);
-        doc.PropertyChanged += (_, _) => { if (doc == ActiveDocument) { Title = "Sin - Notepad - " + doc.Name; UpdateStatus(); } };
-        view.Editor.SelectionChanged += (_, _) => { if (doc == ActiveDocument) UpdateStatus(); };
-        view.Editor.TextChanged += (_, _) => { if (doc.AutoSave) { pendingAutoSaves[doc.Id] = DateTime.UtcNow; autoSaveErrors.Remove(doc.Id); } if (doc == ActiveDocument) { UpdateStatus(); UpdateSearchStatus(); } };
+        doc.PropertyChanged += (_, e) => { if (doc == ActiveDocument && e.PropertyName == nameof(Document.Name)) Title = "Sin - Notepad - " + doc.Name; };
+        view.DocumentSynchronized += (_, _) => { if (doc == ActiveDocument) { UpdateStatus(); UpdateSearchStatus(); } };
+        view.Editor.SelectionChanged += (_, _) => { if (doc == ActiveDocument) UpdatePositionStatus(); };
+        view.Editor.TextChanged += (_, _) => { if (doc.AutoSave) { pendingAutoSaves[doc.Id] = DateTime.UtcNow; autoSaveErrors.Remove(doc.Id); } if (doc == ActiveDocument) UpdatePositionStatus(); };
         view.Editor.PreviewMouseWheel += (_, e) => { if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) { ChangeZoom(e.Delta > 0 ? 10 : -10); e.Handled = true; } };
         ActiveDocument = doc; UpdateTabWidths(); App.Current.MarkChanged();
         if (doc.AutoSave && doc.Dirty) pendingAutoSaves[doc.Id] = DateTime.UtcNow;
@@ -122,6 +125,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             if (!force && DateTime.UtcNow - pending.Value < TimeSpan.FromMilliseconds(800)) continue;
             var doc = Documents.FirstOrDefault(d => d.Id == pending.Key);
             pendingAutoSaves.Remove(pending.Key);
+            if (doc != null) editors.GetValueOrDefault(doc.Id)?.SynchronizeDocument();
             if (doc == null || !doc.AutoSave || !doc.Dirty || doc.Path == null) continue;
             try { TextFiles.Save(doc, doc.Path); autoSaveErrors.Remove(doc.Id); App.Current.MarkChanged(); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.EncoderFallbackException)
@@ -142,7 +146,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 var doc = TextFiles.Open(path);
                 var empty = Documents.Count == 1 && Documents[0].Path == null && !Documents[0].Dirty && Documents[0].Text.Length == 0 ? Documents[0] : null;
                 AddDocument(doc);
-                if (empty != null) { Documents.Remove(empty); editors.Remove(empty.Id); }
+                if (empty != null) { Documents.Remove(empty); if (editors.Remove(empty.Id, out var emptyView)) emptyView.StopSynchronization(); }
                 AddRecent(path);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
@@ -160,6 +164,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
     public bool SaveDocument(Document doc, bool saveAs = false)
     {
+        editors.GetValueOrDefault(doc.Id)?.SynchronizeDocument();
         string? path = doc.Path;
         if (saveAs || path == null)
         {
@@ -195,7 +200,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     internal void RemoveDocument(Document doc, bool fileDeleted = false)
     {
         int index = Documents.IndexOf(doc); bool active = doc == ActiveDocument;
-        Documents.Remove(doc); editors.Remove(doc.Id); noticedVersions.Remove(doc.Id); pendingAutoSaves.Remove(doc.Id); autoSaveErrors.Remove(doc.Id);
+        Documents.Remove(doc); if (editors.Remove(doc.Id, out var removedView)) removedView.StopSynchronization(); noticedVersions.Remove(doc.Id); pendingAutoSaves.Remove(doc.Id); autoSaveErrors.Remove(doc.Id);
         if (Documents.Count == 0) NewDocument(fileDeleted ? doc.Path : null); else if (active) ActiveDocument = Documents[Math.Min(index, Documents.Count - 1)];
         UpdateTabWidths(); FocusEditor(); App.Current.MarkChanged();
     }
@@ -222,6 +227,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
     public WindowSession Snapshot()
     {
+        foreach (var view in editors.Values) view.SynchronizeDocument();
         var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         return new() { Documents = Documents.ToList(), ActiveIndex = Math.Max(0, Documents.IndexOf(ActiveDocument!)), Width = bounds.Width, Height = bounds.Height, Maximized = WindowState == WindowState.Maximized, DocumentList = IsDocumentList, ListWidth = IsDocumentList ? ListColumn.ActualWidth : savedListWidth };
     }
@@ -308,13 +314,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ActiveDocument.Zoom = Math.Clamp(absolute ? delta : ActiveDocument.Zoom + delta, 10, 500);
         CurrentView?.ApplyPreferences(); UpdateStatus(); App.Current.MarkChanged();
     }
-    void UpdateStatus()
+    void UpdatePositionStatus()
     {
         if (Editor == null || CurrentView == null || ActiveDocument == null || PositionStatus == null) return;
         var position = CurrentView.Gutter.Position(Editor.CaretIndex);
         PositionStatus.Text = $"Ln {position.Line:N0}, Col {position.Column:N0}";
+    }
+    void UpdateStatus()
+    {
+        if (Editor == null || CurrentView == null || ActiveDocument == null || PositionStatus == null) return;
+        UpdatePositionStatus();
         int totalLines = CurrentView.Gutter.LineCount;
-        int count = TextFiles.Normalize(Editor.Text).Length;
+        int count = ActiveDocument.Text.Length;
         CountStatus.Text = $"{totalLines:N0} {(totalLines == 1 ? "line" : "lines")}  ·  {count:N0} characters" + (Editor.SelectionLength > 0 ? $"  ·  {Editor.SelectionLength:N0} selected" : "");
         if (ActiveDocument.AutoSave) CountStatus.Text += autoSaveErrors.ContainsKey(ActiveDocument.Id) ? "  ·  Auto-save paused" : ActiveDocument.Dirty ? "  ·  Saving…" : "  ·  Saved";
         CountStatus.ToolTip = autoSaveErrors.GetValueOrDefault(ActiveDocument.Id) ?? (ActiveDocument.AutoSave ? ActiveDocument.Path : null);
@@ -366,7 +377,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (ActiveDocument is not { Path: not null } doc || Editor == null) return;
         if (doc.Dirty && MessageBox.Show(this, "Reloading will replace your unsaved changes with the file on disk. Continue?", "Reload file", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
-        try { var disk = TextFiles.Open(doc.Path); doc.EncodingName = disk.EncodingName; doc.SavedEncoding = disk.EncodingName; doc.NewLine = disk.NewLine; doc.SavedNewLine = disk.NewLine; doc.SavedText = disk.Text; doc.Fingerprint = disk.Fingerprint; Editor.Text = disk.Text; Editor.ClearUndo(); doc.Notify(); ExternalNotice.Visibility = Visibility.Collapsed; UpdateStatus(); }
+        try { var disk = TextFiles.Open(doc.Path); doc.EncodingName = disk.EncodingName; doc.SavedEncoding = disk.EncodingName; doc.NewLine = disk.NewLine; doc.SavedNewLine = disk.NewLine; doc.SavedText = disk.Text; doc.Fingerprint = disk.Fingerprint; Editor.Text = disk.Text; CurrentView?.SynchronizeDocument(); Editor.ClearUndo(); doc.Notify(); ExternalNotice.Visibility = Visibility.Collapsed; UpdateStatus(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { MessageBox.Show(this, ex.Message, "Could not reload"); }
     }
     void KeepVersionClick(object sender, RoutedEventArgs e) { ExternalNotice.Visibility = Visibility.Collapsed; FocusEditor(); }
@@ -414,6 +425,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     void CloseSearchClick(object sender, RoutedEventArgs e) { SearchPanel.Visibility = Visibility.Collapsed; FocusEditor(); }
     public bool GoToLine(int line)
     {
+        CurrentView?.SynchronizeDocument();
         if (CurrentView == null || Editor == null || line < 1 || line > CurrentView.Gutter.LineCount) return false;
         int index = CurrentView.Gutter.LineStarts[line - 1]; Editor.Select(index, 0); Editor.ScrollToLine(Editor.GetLineIndexFromCharacterIndex(index)); FocusEditor(); return true;
     }

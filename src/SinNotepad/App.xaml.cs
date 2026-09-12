@@ -61,7 +61,10 @@ public partial class App : Application
         if (Windows.OfType<MainWindow>().FirstOrDefault() is not { } main) { main = new MainWindow(); main.Show(); }
         MainWindow = main;
         if (args.Count > 0) main.OpenPaths(args);
-        timer.Tick += (_, _) => { if (sessionChanged) SaveState(); };
+        timer.Tick += (_, _) =>
+        {
+            if (sessionChanged && !Windows.OfType<MainWindow>().Any(window => window.HasPendingEditorSynchronization)) SaveState();
+        };
         timer.Start();
         sessionChanged = true;
         SessionEnding += (_, _) => { foreach (var window in Windows.OfType<MainWindow>()) window.FlushAutoSaves(true); SaveState(); };

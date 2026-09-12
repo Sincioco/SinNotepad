@@ -1,4 +1,5 @@
 using System.IO;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -104,6 +105,7 @@ internal static class UiSelfTest
             editor.ClearUndo(); editor.CaretIndex = editor.Text.Length; editor.SelectedText = " edited";
             Check(first.Dirty, "Editing marks the document modified");
             Check(first.Name == "Text 1", "Editing does not rename numbered documents");
+            await Task.Delay(300);
             Check(window.CurrentView!.Gutter.LineCount == 3, "Gutter counts logical lines");
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(GlyphCount(window.CurrentView.Gutter) == 3, "All three line numbers are visibly drawn after editing");
@@ -125,10 +127,10 @@ internal static class UiSelfTest
             Check(typingFrames.Count >= 5 && typingFrames.All(count => count == 3), "Every rendered typing frame retains all three line numbers without a blank flash");
             Check(unchangedGlyphs.SequenceEqual(Glyphs(window.CurrentView.Gutter)), "Ordinary typing reuses the existing number glyphs when line positions are unchanged");
             editor.SelectedText = "\r\nnew line";
-            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            await Task.Delay(300); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(GlyphCount(window.CurrentView.Gutter) == 4, "Typing a newline visibly adds a line number");
             editor.Undo();
-            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            await Task.Delay(300); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(GlyphCount(window.CurrentView.Gutter) == 3, "Undo redraws line numbers");
             for (int i = 0; i < 5; i++) editor.Undo();
             window.SetLineNumbers(false); window.UpdateLayout();
@@ -176,7 +178,7 @@ internal static class UiSelfTest
             window.MoveDocument(second, 0); Check(window.Documents[0] == second, "Document reordering updates collection");
             window.ActiveDocument = first;
             editor.Text = string.Join("\n", Enumerable.Range(1, 200).Select(i => $"Line {i}: editable plain text"));
-            window.UpdateLayout(); editor.ScrollToEnd();
+            await Task.Delay(300); window.UpdateLayout(); editor.ScrollToEnd();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(window.CurrentView.Gutter.LineCount == 200 && editor.VerticalOffset > 0, "Long text scrolls with 200 logical line numbers");
             Check(new string(Glyphs(window.CurrentView.Gutter).Last().Characters.ToArray()) == "200", "Scrolling replaces cached numbers with the visible final line 200");
@@ -280,6 +282,7 @@ internal static class UiSelfTest
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             app.Preferences.WordWrap = false; window.ApplyPreferences();
             window.Editor!.Text = string.Join("\n", Enumerable.Repeat(new string('x', 500), 3));
+            await Task.Delay(300);
             window.Editor.CaretIndex = window.Editor.Text.Length; window.Editor.ScrollToHorizontalOffset(1800);
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(window.Editor.HorizontalOffset > 0 && GlyphCount(window.CurrentView!.Gutter) == 3, "Line numbers remain visible during horizontal scrolling with word wrap off");
@@ -290,11 +293,29 @@ internal static class UiSelfTest
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(GlyphCount(window.CurrentView!.Gutter) > 0, "Wrapped text redraws logical line numbers after the layout changes");
             window.Editor.Text = "short\nsecond\nthird"; window.Editor.ScrollToHome();
-            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            await Task.Delay(300); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             double secondLineBaseline = Glyphs(window.CurrentView.Gutter).ElementAt(1).BaselineOrigin.Y;
             window.Editor.Select(5, 0); window.Editor.SelectedText = new string('x', 120);
-            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            await Task.Delay(300); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Check(Glyphs(window.CurrentView.Gutter).ElementAt(1).BaselineOrigin.Y > secondLineBaseline, "Wrapping the first paragraph moves subsequent line-number drawings into alignment");
+            var performanceDocument = window.NewDocument();
+            var performanceView = window.CurrentView!;
+            var performanceEditor = performanceView.Editor;
+            performanceEditor.Text = string.Join("\n", Enumerable.Range(1, 4000).Select(i => $"{i:D4} {new string('x', 56)}"));
+            performanceEditor.CaretIndex = performanceEditor.Text.Length;
+            performanceView.SynchronizeDocument();
+            string synchronizedText = performanceDocument.Text;
+            int backgroundSynchronizations = 0;
+            performanceView.DocumentSynchronized += (_, _) => backgroundSynchronizations++;
+            var typingTimer = Stopwatch.StartNew();
+            for (int i = 0; i < 50; i++) performanceEditor.SelectedText = "x";
+            typingTimer.Stop();
+            results.Add($"INFO 50 edits in a 248,000-character document queued in {typingTimer.Elapsed.TotalMilliseconds:N1} ms");
+            Check(performanceDocument.EditPending && performanceDocument.Text == synchronizedText && backgroundSynchronizations == 0,
+                "Rapid typing defers full-document synchronization instead of rescanning on every keystroke");
+            performanceView.SynchronizeDocument();
+            Check(backgroundSynchronizations == 1 && performanceDocument.Text.EndsWith(new string('x', 50)),
+                "One coalesced synchronization preserves every rapidly typed character");
             app.BeginExit();
             Check(app.Exiting, "The app enters exit mode before dispatcher teardown begins");
             results.Add($"PASS {results.Count(r => r.StartsWith("PASS "))} UI integration checks");

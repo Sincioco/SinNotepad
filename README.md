@@ -10,6 +10,7 @@ The packaged Windows x64 app includes its .NET runtime. No installation or admin
 ## Editing
 
 - Create, open, edit and save plain-text files.
+- Typing remains responsive in long files by updating full-document metadata after a brief pause. Save, tab switching and closing always synchronize pending text first.
 - New documents are named **Text 1**, **Text 2**, and so on. Typing does not rename them.
 - A standard Windows title bar shows **Sin - Notepad - filename.txt**, without the folder path; unsaved documents show their numbered name. Hover over a document or use **Copy full path** for its full location.
 - Horizontal tabs sit below the menu bar. Choose **View → Document List** or press **Ctrl+Shift+L** to switch to a vertical list on the left. Drag its right edge to resize it. The width is remembered.
