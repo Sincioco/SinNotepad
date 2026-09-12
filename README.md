@@ -6,6 +6,8 @@ A small native Windows plain-text editor with tabs and a resizable Document List
 
 Double-click **SinNotePad.lnk** in the project folder, or run **app\Sin - Notepad.exe**.
 The packaged Windows x64 app includes its .NET runtime. No installation or administrator access is required.
+It is published as an uncompressed ReadyToRun executable for faster startup. File-association maintenance runs
+after the editor appears and only when the application version or executable path changes.
 
 ## Editing
 

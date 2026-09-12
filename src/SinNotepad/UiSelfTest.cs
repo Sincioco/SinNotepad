@@ -50,6 +50,8 @@ internal static class UiSelfTest
                 FileAssociations.Register(associationTest, testExecutable);
                 using var associatedIcon = associationTest.OpenSubKey(@"Classes\Applications\Sin - Notepad.exe\DefaultIcon");
                 Check((string?)associatedIcon?.GetValue(null) == $"\"{testExecutable}\",0", "The Windows application association supplies the Sin Notepad file icon");
+                Check(FileAssociations.IsRegistrationCurrent(associationTest, testExecutable), "Unchanged file-association registration can be skipped during launch");
+                Check(!FileAssociations.IsRegistrationCurrent(associationTest, @"C:\Apps\Moved\Sin - Notepad.exe"), "A moved executable refreshes file-association registration after launch");
             }
             finally { Registry.CurrentUser.DeleteSubKeyTree(associationTestKey, false); }
             Check(window.MainMenu.TranslatePoint(new Point(0, window.MainMenu.ActualHeight), window).Y <= window.HorizontalNavigation.TranslatePoint(new Point(), window).Y, "Tabs sit below the menu bar");
@@ -280,6 +282,14 @@ internal static class UiSelfTest
             closeSaveWindow.Close();
             var gutterDocument = window.NewDocument();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            window.Editor!.Text = "first line\nsecond line\nthird line";
+            await Task.Delay(300);
+            window.Editor.SelectAll(); window.Editor.SelectedText = "";
+            window.UpdateLayout();
+            window.Editor.SelectedText = "replacement text";
+            await Task.Delay(300); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(window.Editor.Text == "replacement text" && window.CurrentView!.Gutter.LineCount == 1 && GlyphCount(window.CurrentView.Gutter) == 1,
+                "Ctrl+A, Delete and resumed typing rebuild line numbers without an invalid character index");
             app.Preferences.WordWrap = false; window.ApplyPreferences();
             window.Editor!.Text = string.Join("\n", Enumerable.Repeat(new string('x', 500), 3));
             await Task.Delay(300);

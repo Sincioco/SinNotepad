@@ -5,7 +5,7 @@ try {
     dotnet build SinNotepad.sln -c Release --nologo
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
     if ($Package) {
-        dotnet publish src/SinNotepad/SinNotepad.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o app --nologo
+        dotnet publish src/SinNotepad/SinNotepad.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=false -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false -o app --nologo
         if ($LASTEXITCODE -ne 0) { throw 'Packaging failed.' }
         $shortcutShell = New-Object -ComObject WScript.Shell
         $shortcut = $shortcutShell.CreateShortcut((Join-Path $PSScriptRoot 'SinNotePad.lnk'))

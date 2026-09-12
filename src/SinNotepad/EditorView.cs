@@ -76,6 +76,7 @@ public sealed class EditorView : Grid
             bool wasDirty = doc.Dirty;
             doc.EditPending = true;
             textSyncPending = selectionSyncPending = true;
+            Gutter.DeferRefreshUntilRebuild();
             if (!wasDirty) doc.Notify();
             QueueDocumentSync();
             App.Current.MarkChanged();
@@ -136,6 +137,7 @@ public sealed class LineNumberGutter : FrameworkElement
     readonly TextBox editor;
     bool refreshQueued;
     bool refreshPending;
+    bool textChangePending;
     readonly record struct VisibleLine(int Number, double Top);
     readonly record struct DrawingStyle(FontFamily Font, double FontSize, double Dpi, double Width, Brush Foreground, Brush Background, Brush Border);
     List<VisibleLine> visibleLines = [];
@@ -159,9 +161,11 @@ public sealed class LineNumberGutter : FrameworkElement
         var starts = new List<int> { 0 }; string text = editor.Text;
         for (int i = 0; i < text.Length; i++) { if (text[i] == '\r') { if (i + 1 < text.Length && text[i + 1] == '\n') i++; starts.Add(i + 1); } else if (text[i] == '\n') starts.Add(i + 1); }
         LineStarts = starts;
+        textChangePending = false;
         Width = Math.Max(42, Math.Ceiling(editor.FontSize * 0.62 * Math.Max(2, starts.Count.ToString().Length) + 22));
         RequestRefresh();
     }
+    public void DeferRefreshUntilRebuild() => textChangePending = true;
     public void RequestRefresh()
     {
         refreshPending = true;
@@ -182,6 +186,7 @@ public sealed class LineNumberGutter : FrameworkElement
     }
     bool TryRefreshDrawing()
     {
+        if (textChangePending) return false;
         if (!editor.IsMeasureValid || !editor.IsArrangeValid || ActualWidth <= 0 || ActualHeight <= 0) return false;
         int index = editor.GetCharacterIndexFromPoint(new Point(editor.Padding.Left + 1, 1), true);
         if (index < 0) return false;
