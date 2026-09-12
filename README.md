@@ -119,6 +119,8 @@ can be lost in a sudden process or power failure before the next snapshot or aut
 ## Build and test
 
 Requires Windows and the .NET 10 SDK. There are no external NuGet package dependencies.
+The permanent full-resolution icon source is `src\SinNotepad\Assets\SinNotepad.png`; `SinNotepad.ico`
+contains the Windows icon frames embedded in the application.
 
 ```powershell
 .\Build.ps1 -Package
