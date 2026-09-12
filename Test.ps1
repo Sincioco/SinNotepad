@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
+    & (Join-Path $PSScriptRoot 'Check-Architecture.ps1') -SelfTest
     dotnet build SinNotepad.sln -c Release --nologo
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
     dotnet run --project tests/SinNotepad.Tests -c Release --no-build

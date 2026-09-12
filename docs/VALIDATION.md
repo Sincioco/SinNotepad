@@ -1,13 +1,14 @@
 # Validation
 
-Validated on Windows 11 x64 with .NET SDK 10.0.400 on September 11, 2026.
+Validated on Windows 11 x64 with .NET SDK 10.0.400 on September 12, 2026.
 
 ## Final checks
 
 - Release solution build: passed, zero warnings and zero errors.
 - Self-contained Windows x64 package: passed; runtime bundled in one executable.
 - Core tests: **51 passed, 0 failed**.
-- WPF editor integration tests: **100 passed**.
+- WPF editor integration tests: **115 passed**.
+- Architecture guardrails: **15 handwritten source files checked, 1 review warning, 0 violations**.
 - Source whitespace formatting and Git whitespace checks: passed.
 
 Core tests exercise Unicode/encoding and line-ending round trips, unchanged mixed endings, external-edit
@@ -24,7 +25,7 @@ toggling, sidebar sizing and width persistence, undo/redo retention, find/replac
 scrolling, session restoration, selection restoration across CRLF normalization, physical auto-save files,
 auto-save edits, write conflicts, and resetting the document sequence.
 New checks verify menu-before-tabs geometry, removal of document close buttons, all five context commands,
-Date/Time insertion/selection/undo/repeat, clipboard path copying (restoring the original clipboard afterward),
+Date/Time insertion/selection/undo/repeat, exact path dispatch to the production clipboard command,
 File Explorer arguments, rename across windows with retained edits and undo, paused auto-save during Delete,
 cancellation/failure recovery, actual Windows Recycle Bin deletion of an isolated fixture, removal of all open
 references, and prevention of file recreation by auto-save. Line-number checks inspect the rendered glyph
@@ -32,6 +33,16 @@ drawings after individual edits, a newline, undo, toggling, horizontal scrolling
 also inherit the line-number setting.
 Deletion also checks the current open references after modal confirmation, retaining documents saved to a
 different path during the dialog and closing any newly opened references to the deleted file.
+
+## Architecture guardrails
+
+`Check-Architecture.ps1 -SelfTest` passed its warning, failure and legacy-baseline cases. The repository scan
+checked 15 handwritten source files and found no violations. `MainWindow.xaml.cs` remains at its reviewed 584-line
+no-growth baseline and produces the expected review warning. A controlled failure-injection check temporarily made
+that file 585 lines, confirmed that the checker rejected the growth, and restored the original file byte-for-byte.
+The checker also passed the one-way application-to-core project-reference rules and the explicit WPF namespace scan
+of the core. Responsibility cohesion and function length were reviewed manually because they are semantic checks.
+The repository has no CI configuration, so these guardrails run through the required local `Test.ps1` path.
 
 The 1.1.1 frame-by-frame regression reproduced the reported typing flicker on the previous implementation:
 several intermediate composition frames contained zero line-number glyphs even though the post-edit checks

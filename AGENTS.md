@@ -39,6 +39,9 @@ Run `Build.ps1 -Package` to produce the self-contained Windows x64 app and proje
 
 Keep each behavior understandable, testable, and changeable within a small, coherent set of modules. Minimize
 avoidable future refactoring and agent context without sacrificing correctness, performance, or readability.
+The current ownership map, measurable limits, legacy baseline, and enforcement details are in
+`docs/ARCHITECTURE.md`. `Check-Architecture.ps1` runs through `Test.ps1`; do not change its budgets, baseline,
+exclusions, or dependency rules merely to make a check pass.
 
 Before substantial implementation:
 

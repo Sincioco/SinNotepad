@@ -125,12 +125,14 @@ The permanent full-resolution icon source is `src\SinNotepad\Assets\SinNotepad.p
 contains the Windows icon frames embedded in the application.
 
 ```powershell
+.\Check-Architecture.ps1 -SelfTest
 .\Build.ps1 -Package
 .\Test.ps1
 ```
 
-`Test.ps1` runs encoding/file-safety/search/numbering/session tests and integration checks against the real WPF
-editor. It uses disposable data under `work/`, leaving your normal documents and settings untouched.
+`Test.ps1` runs the architecture guardrails, encoding/file-safety/search/numbering/session tests and integration
+checks against the real WPF editor. It uses disposable data under `work/`, leaving your normal documents and settings
+untouched. The ownership map and controlled-growth baselines are documented in `docs/ARCHITECTURE.md`.
 
 The solution is `SinNotepad.sln`. `SinNotepad.Core` owns files, documents, numbering, search and persistence.
 `SinNotepad` owns the WPF interface, editor gutter, settings, auto-save scheduling and single-instance routing.

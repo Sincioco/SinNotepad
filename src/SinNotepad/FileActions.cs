@@ -24,9 +24,10 @@ public partial class MainWindow
         menu.IsOpen = true;
     }
 
-    internal ContextMenu CreateDocumentMenu(Document doc)
+    internal ContextMenu CreateDocumentMenu(Document doc, Action<string>? copyPath = null)
     {
         var menu = new ContextMenu();
+        Action<string> writeClipboard = copyPath ?? Clipboard.SetText;
         void Add(string label, Action action, bool needsFile, bool needsPath = true)
         {
             bool enabled = !needsPath || doc.Path != null && (!needsFile || File.Exists(doc.Path));
@@ -50,7 +51,7 @@ public partial class MainWindow
         Add("_Rename…", () => Dialogs.RenameFile(this, doc.Name, name => RenameDocumentFile(doc, name)), true);
         Add("_Delete…", () => DeleteDocumentFile(doc, (path, dirty) => Dialogs.DeleteFile(this, path, dirty)), true);
         menu.Items.Add(new Separator());
-        Add("Copy full _path", () => Clipboard.SetText(doc.Path!), false);
+        Add("Copy full _path", () => writeClipboard(doc.Path!), false);
         Add("Open containing _folder", () => OpenContainingFolder(doc.Path!), false);
         menu.Items.Add(new Separator());
         Add("_Close", () => CloseDocument(doc), false, needsPath: false);

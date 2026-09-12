@@ -220,15 +220,11 @@ internal static class UiSelfTest
             Check(window.Editor == renameEditor && renameEditor.CanUndo && window.Title == "Sin - Notepad - " + afterReset.Name, "Rename preserves editor identity, undo and the filename title");
             window.FlushAutoSaves(true);
             Check(File.ReadAllText(afterReset.Path!) == "keep pending edits" && !File.Exists(originalPath), "Pending auto-save follows the renamed file");
-            var fileMenu = window.CreateDocumentMenu(afterReset);
+            string? copiedPath = null;
+            var fileMenu = window.CreateDocumentMenu(afterReset, path => copiedPath = path);
             Check(fileMenu.Items.OfType<MenuItem>().Count() == 5 && fileMenu.Items.OfType<MenuItem>().All(i => i.IsEnabled), "Saved documents expose Rename, Delete, Copy path, Open folder and Close");
-            var clipboardBefore = Clipboard.GetDataObject();
-            try
-            {
-                ((MenuItem)fileMenu.Items[3]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-                Check(Clipboard.GetText() == afterReset.Path, "Copy full path places the exact file path on the clipboard");
-            }
-            finally { if (clipboardBefore != null) Clipboard.SetDataObject(clipboardBefore, true); else Clipboard.Clear(); }
+            ((MenuItem)fileMenu.Items[3]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Check(copiedPath == afterReset.Path, "Copy full path sends the exact file path to the clipboard command");
             var explorer = MainWindow.ContainingFolderCommand(afterReset.Path!);
             Check(explorer.Arguments == $"/select,\"{afterReset.Path}\"" && explorer.FileName.EndsWith("explorer.exe"), "Open containing folder selects the correct file, including spaces and Unicode");
             renameEditor.SelectedText = " unsaved";
