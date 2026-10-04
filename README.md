@@ -140,3 +140,8 @@ The solution is `SinNotepad.sln`. `SinNotepad.Core` owns files, documents, numbe
 
 This project is a standalone plain-text editor. It is not affiliated with Microsoft, and it deliberately has
 no printing, Markdown renderer, rich-text formatting or AI services.
+
+## License
+
+SinNotePad is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**,
+matching [PMT](https://github.com/Sincioco/PMT). See [LICENSE](LICENSE) for the full terms.
